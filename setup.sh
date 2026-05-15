@@ -6,6 +6,11 @@ echo "  plaid-wave-sync setup"
 echo "═══════════════════════════════════════════════════════"
 echo ""
 
+# Make repo private
+echo "▶ Making your fork private (keeps your financial data safe)..."
+gh repo edit --visibility private 2>/dev/null && echo "  ✓ Repo is now private" || echo "  ⚠ Couldn't change visibility (you can do this in Settings)"
+echo ""
+
 # Step 1: Plaid account
 echo "▶ Step 1: Plaid account"
 if plaid config 2>/dev/null | grep -q "client_id"; then
@@ -62,9 +67,10 @@ echo ""
 # Step 5: Build keywords with Copilot
 echo "▶ Step 5: Build keyword mappings"
 echo ""
-echo "  Drop your bank CSV (or Wave transaction export) into this workspace."
+echo "  Drag your bank CSV (or Wave transaction export) into the imports/ folder."
+echo "  This folder is gitignored — your data stays local."
 echo ""
-read -p "  Path to your CSV (or Enter to skip): " csv_path
+read -p "  Path to your CSV (e.g. imports/transactions.csv) or Enter to skip: " csv_path
 if [ -n "$csv_path" ] && [ -f "$csv_path" ]; then
     ACCOUNTS_OUTPUT=$(uv run plaid_sync.py --dump-accounts 2>/dev/null | grep -A1000 "^\[")
     echo "  Generating keywords.json with Copilot..."
