@@ -324,11 +324,11 @@ fi
 if [ -n "$csv_path" ] && [ -f "$csv_path" ]; then
     export PATH="$HOME/.local/bin:$PATH"
     
-    # Get client names and accounts from Wave, then extract clean descriptions
-    ACCOUNTS_OUTPUT=$(uv run plaid_sync.py --dump-accounts 2>/dev/null | grep -E "^\[|^  " | grep -v "Accounts Receivable\|Transfer Clearing\|Payroll Clearing\|Cash on Hand\|Wave Payroll\|Owner")
-
+    # Build keywords.json directly from the CSV's existing categorization
+    info "Building keywords.json from your existing categorization..."
+    
     uv run --with httpx python3 -c "
-import csv, os, sys, httpx
+import csv, json, re, sys, os, httpx
 
 # Get client names from Wave invoices
 clients = set()
@@ -344,142 +344,95 @@ if biz_id and token:
             clients.add(e['node']['customer']['name'].lower())
     except: pass
 
-# Patterns that indicate internal/non-expense transactions
-skip_prefixes = ('Starting Balance', 'Totals and Ending Balance', 'Balance Change', 
-                 'Description', 'DESCRIPTION', 'Total employee', 'Total net pay', 
-                 'Total employer', 'Total gross pay', '(Deleted)', 'Before-tax deduction',
-                 'Payroll tax liabilities', 'Payroll period ending', 'Incoming Wire',
-                 'Incoming International', 'Mobile Deposit', 'Interest earned',
-                 'Transfer from transfer clearing', 'Transfer to', 'Transfer from',
-                 'AUTOMATIC PAYMENT', 'CHASE CREDIT CRD')
-skip_contains = ('Editor', 'Camera Op', 'Lighting', 'Travel Day', 'Audio', 'Photographer',
-                 'Directing', 'Additional', 'Media Management', 'Post Coordinator',
-                 'Music Sync', 'Kit Fee', 'DP Fee', 'Transportation', '- Bill ',
-                 'ACH Pmt', 'ACH payment to', 'PAYMENTS', ', SALE')
+# Parse the Wave General Ledger CSV — transactions are grouped under account headers
+expense_income_accounts = set()
+VALID_TYPES = ('Accounting Fees', 'Advertising & Promotion', 'Bank Service Charges',
+    'Computer – Hardware', 'Computer – Hosting', 'Computer – Internet', 'Computer – Software',
+    'Dues & Subscriptions', 'Insurance', 'Interest Expense', 'Meals and Entertainment',
+    'Office Supplies', 'Payroll Employer Taxes', 'Payroll Gross Pay',
+    'Payroll – Salary & Wages', 'Postage & Delivery', 'Professional Fees',
+    'Rent Expense', 'Subcontracted Services', 'Taxes – Corporate Tax',
+    'Telephone – Wireless', 'Travel Expense', 'Uncategorized Expense',
+    'Vehicle – Fuel', 'Video Gear', 'Interest', 'Other', 'Rentals',
+    'Additional Crew', 'Production Expenses')
 
-with open(sys.argv[1]) as f:
-    seen = set()
+current_account = None
+account_transactions = {}  # {account: [descriptions]}
+
+with open(sys.argv[1], encoding='utf-8-sig') as f:
     for row in csv.reader(f):
-        if len(row) > 2:
+        if len(row) >= 2 and not row[0] and row[1] and not any(row[2:5]):
+            # Account header row: ,AccountName,,,,
+            current_account = row[1].strip()
+            if current_account not in account_transactions:
+                account_transactions[current_account] = []
+        elif len(row) > 2 and current_account and row[2].strip():
             desc = row[2].strip()
-            if not desc or desc in seen:
+            if desc in ('Starting Balance', 'Totals and Ending Balance', 'Balance Change'):
                 continue
-            if any(desc.startswith(p) for p in skip_prefixes):
-                continue
-            if any(s in desc for s in skip_contains):
-                continue
-            # Skip invoice headers (Client Name - Number)
-            parts = desc.split(' - ')
-            if len(parts) == 2 and parts[1].strip().replace('A','').replace('B','').isdigit():
-                continue
-            # Skip if it matches a known client name AND it's income (credit column has value)
-            desc_lower = desc.lower()
-            is_income = len(row) > 4 and row[4].strip() and not row[3].strip()
-            if is_income and any(c in desc_lower for c in clients if len(c) > 3):
-                continue
-            seen.add(desc)
-            print(desc)
-" "$csv_path" 2>/dev/null > imports/unique_descriptions.txt
+            if current_account in VALID_TYPES:
+                account_transactions.setdefault(current_account, []).append(desc)
 
-    DESC_COUNT=$(wc -l < imports/unique_descriptions.txt | tr -d ' ')
-    success "Extracted $DESC_COUNT vendor transactions (filtered clients, transfers, payroll)"
+# Build keyword map: extract short vendor keywords from descriptions
+def extract_keyword(desc):
+    # Remove common suffixes/noise
+    desc = re.sub(r'\*[A-Z0-9]+$', '', desc)  # AMAZON MKTPL*RV28G0680 -> AMAZON MKTPL
+    desc = re.sub(r'\s+\d{4,}.*$', '', desc)  # Dropbox LWZMTQ19CTJ4 -> Dropbox
+    desc = re.sub(r'\s*#\d+.*$', '', desc)
+    desc = re.sub(r',\s*\d+$', '', desc)  # Wise Inc, 69 -> Wise Inc
+    desc = desc.strip().lower()
+    # Take first meaningful word(s)
+    parts = desc.split()
+    if len(parts) >= 2 and len(parts[0]) <= 3:
+        return ' '.join(parts[:3]).strip('*').strip()
+    return ' '.join(parts[:2]).strip('*').strip() if len(parts) > 1 else parts[0].strip('*') if parts else ''
 
-    CLIENTS=$(WAVE_ACCESS_TOKEN="$WAVE_ACCESS_TOKEN" WAVE_BUSINESS_ID="${WAVE_BUSINESS_ID}" uv run --with httpx python3 -c "
-import os, httpx
-biz = os.environ.get('WAVE_BUSINESS_ID','')
-r = httpx.post('https://gql.waveapps.com/graphql/public',
-    headers={'Authorization': f'Bearer {os.environ[\"WAVE_ACCESS_TOKEN\"]}'},
-    json={'query': '''query(\$id:ID!){business(id:\$id){invoices(page:1,pageSize:100){edges{node{customer{name}}}}}}''',
-          'variables': {'id': biz}}, timeout=30)
-names = set()
-for e in r.json().get('data',{}).get('business',{}).get('invoices',{}).get('edges',[]):
-    names.add(e['node']['customer']['name'])
-for n in sorted(names):
-    print(n)
-" 2>/dev/null)
+keywords = {}
+skip_keywords = set()
 
-    cat > KEYWORDS_GUIDE.md <<EOF
-# Generate keywords.json
+for account, descs in account_transactions.items():
+    if account not in VALID_TYPES:
+        continue
+    for desc in descs:
+        kw = extract_keyword(desc)
+        if not kw or len(kw) < 3:
+            continue
+        # Skip if it matches a client name
+        if any(c in kw for c in clients if len(c) > 3):
+            continue
+        # Skip overly generic keywords
+        if kw in ('ach', 'wire', 'payment', 'deposit', 'transfer', 'check', 'payroll'):
+            continue
+        # If keyword already mapped to a different account, skip (ambiguous)
+        if kw in keywords and keywords[kw] != account:
+            skip_keywords.add(kw)
+            continue
+        keywords[kw] = account
 
-**DO NOT run any terminal commands. Just read the file and write the JSON.**
+# Remove ambiguous keywords
+for kw in skip_keywords:
+    keywords.pop(kw, None)
 
-## Task
+# Add null entries for common transfers
+for pattern in ('transfer to', 'transfer from', 'chase credit', 'automatic payment', 'autopay'):
+    keywords[pattern] = None
 
-1. Read \`imports/unique_descriptions.txt\` — each line is a transaction description from the bank
-2. For each one, decide which Wave account it belongs to
-3. Write a \`keywords.json\` file to the workspace root
-
-## Output Format
-
-\`\`\`json
-{
-  "keywords": {
-    "vendor keyword": "Wave Account Name",
-    "another vendor": "Wave Account Name",
-    "transfer keyword": null
-  },
-  "fallback_expense": "Uncategorized Expense",
-  "fallback_income": "Other"
+output = {
+    'keywords': dict(sorted(keywords.items())),
+    'fallback_expense': 'Uncategorized Expense',
+    'fallback_income': 'Other'
 }
-\`\`\`
 
-## CLIENTS — do NOT map these (invoice matching handles them)
+with open('keywords.json', 'w') as f:
+    json.dump(output, f, indent=2)
 
-\`\`\`
-${CLIENTS}
-\`\`\`
+print(f'Generated {len(keywords)} keywords across {len(set(v for v in keywords.values() if v))} categories')
+" "$csv_path" 2>/dev/null
 
-These are customers who pay invoices. If you see them in the descriptions, SKIP them.
-
-## Rules
-
-- Keywords are **lowercase** substrings (e.g., "adobe" matches "ADOBE *800-833-6687")
-- Values must **exactly** match an account name from the list below
-- Only use Expense or Income accounts (NOT Asset, Equity, or Liability)
-- Use \`null\` ONLY for internal transfers and CC payments (money moving between own accounts)
-- Do NOT use \`null\` for income/deposits — leave unmapped to fall to "Other" fallback
-- Do NOT map any client names listed above
-- Only map OUTGOING payments. If a name only appears as incoming money, skip it.
-- Use short keywords — just the core vendor name
-- Do NOT use overly broad keywords (e.g., "pay", "payment", "deposit", or a person's first name)
-- **Map every identifiable vendor** — if the category is obvious, include it
-- When in doubt, pick the more specific category
-
-## Category Guidance
-
-- SaaS, cloud services, apps → **Computer – Software**
-- Web hosting, GPU, servers → **Computer – Hosting**
-- Phone/cell service → **Telephone – Wireless**
-- Camera, audio, video equipment → **Video Gear**
-- Flights, trains, rideshare, hotels, parking → **Travel Expense**
-- Restaurants, food delivery, coffee → **Meals and Entertainment**
-- Tickets, shows, events, museums → **Meals and Entertainment**
-- Shipping, mail → **Postage & Delivery**
-- Legal filings, accountants, consultants → **Professional Fees**
-- Payroll withdrawals → **Payroll – Salary & Wages**
-- Tax payments → **Taxes – Corporate Tax** or **Payroll Employer Taxes**
-- Insurance premiums → **Insurance**
-- Bank fees → **Bank Service Charges**
-- Internal transfers, CC autopay → **null**
-
-## Wave Account Names (use ONLY these as values)
-
-\`\`\`
-${ACCOUNTS_OUTPUT}
-\`\`\`
-EOF
-
-    echo ""
-    success "Generated KEYWORDS_GUIDE.md with your accounts + client list"
-    echo ""
-    echo -e "  ${BOLD}→ Open Copilot Chat (Cmd+Shift+I) and type:${NC}"
-    echo ""
-    echo -e "    ${CYAN}Follow #file:KEYWORDS_GUIDE.md${NC}"
-    echo ""
-    read -p "  Press Enter when Copilot has generated keywords.json..."
-    success "Check keywords.json and edit if needed"
+    success "keywords.json generated from your existing categorization"
+    info "Review it and tweak if needed. Run 'uv run plaid_sync.py --dump-accounts' to validate."
 else
-    warn "No CSV found. Drop one in the workspace and re-run, or see KEYWORDS_GUIDE.md."
+    warn "No CSV found. Export from Wave → Reports → Account Transactions, drop in workspace, re-run."
 fi
 
 # ─── Step 6: Save secrets ─────────────────────────────────────────────────────
