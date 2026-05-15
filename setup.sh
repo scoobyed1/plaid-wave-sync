@@ -126,6 +126,10 @@ else
     echo ""
     read -p "  Press Enter to start..."
 
+    # Kill any stale plaid login processes
+    pkill -f "plaid login" 2>/dev/null || true
+    sleep 1
+
     plaid login &>/tmp/plaid-login.log &
     PLAID_PID=$!
     sleep 2
@@ -133,8 +137,9 @@ else
 
     read -p "  Paste the failed localhost URL: " callback_url
     if echo "$callback_url" | grep -q "localhost.*callback.*code="; then
-        curl -s --max-time 5 "$callback_url" &>/dev/null
+        timeout 5 curl -s "$callback_url" &>/dev/null || true
         sleep 2
+        kill $PLAID_PID 2>/dev/null || true
         wait $PLAID_PID 2>/dev/null || true
         if plaid config 2>/dev/null | grep -q "client_id"; then
             success "Logged in"
