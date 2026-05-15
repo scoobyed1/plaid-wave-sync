@@ -60,7 +60,13 @@ echo ""
 
 # ─── Make repo private ────────────────────────────────────────────────────────
 
-gh repo edit --visibility private 2>/dev/null && success "Repo set to private" || warn "Couldn't change visibility (do it in Settings → General)"
+# ─── Make repo private ────────────────────────────────────────────────────────
+
+REPO_OWNER=$(gh repo view --json owner -q '.owner.login' 2>/dev/null || true)
+REPO_NAME=$(gh repo view --json name -q '.name' 2>/dev/null || true)
+if [ -n "$REPO_OWNER" ] && [ "$REPO_NAME" = "plaid-wave-sync" ]; then
+    gh repo edit --visibility private 2>/dev/null && success "Repo set to private" || true
+fi
 
 # ─── Step 1: Install dependencies ─────────────────────────────────────────────
 
@@ -95,15 +101,29 @@ step "Step 2/6 · Plaid account"
 if plaid config 2>/dev/null | grep -q "client_id"; then
     success "Already logged in to Plaid"
 else
-    echo -e "  Let's create your Plaid account. This opens your browser."
+    echo -e "  ${BOLD}1.${NC} Create your Plaid account (click the link below):"
     echo ""
-    read -p "  Press Enter to continue..."
-    plaid register
+    plaid register 2>&1 | grep -o 'https://[^ ]*' | head -1 | while read url; do
+        echo -e "     ${CYAN}$url${NC}"
+    done
+    plaid register 2>/dev/null || true
     echo ""
-    info "Now let's activate the trial plan (10 free bank connections)."
-    read -p "  Press Enter to open trial signup..."
-    plaid trial
+    read -p "  Done signing up? Press Enter to continue..."
     echo ""
+
+    echo -e "  ${BOLD}2.${NC} Log in to connect your account:"
+    plaid login 2>/dev/null || true
+    echo ""
+    read -p "  Done logging in? Press Enter to continue..."
+    echo ""
+
+    echo -e "  ${BOLD}3.${NC} Activate trial plan (click the link below):"
+    echo -e "     ${CYAN}https://dashboard.plaid.com/trial-plan${NC}"
+    plaid trial 2>/dev/null || true
+    echo ""
+    read -p "  Done with trial signup? Press Enter to continue..."
+    echo ""
+
     plaid keys fetch &>/dev/null &
     spinner $! "Fetching API keys"
 fi
