@@ -375,7 +375,7 @@ with open('/tmp/plaid-access-tokens.txt', 'w') as f:
 with open('/tmp/wave-account-options.txt', 'w') as f:
     for w in wave_accounts:
         f.write(w + '\n')
-" 2>/dev/null
+"
 
     # Handle unmatched accounts interactively
     if [ -f /tmp/plaid-access-tokens.txt ]; then
@@ -545,7 +545,7 @@ with open('keywords.json', 'w') as f:
     json.dump(output, f, indent=2)
 
 print(f'Generated {len(keywords)} keywords across {len(set(v for v in keywords.values() if v))} categories')
-" "$csv_path" 2>/dev/null
+" "$csv_path"
 
     success "keywords.json generated from your existing categorization"
     info "Review it and tweak if needed. Run 'uv run plaid_sync.py --dump-accounts' to validate."
