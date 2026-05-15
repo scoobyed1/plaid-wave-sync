@@ -223,46 +223,54 @@ info "Check status: https://dashboard.plaid.com/activity/status/oauth-institutio
 info "If you need to come back later, reopen this Codespace and run: ./setup.sh"
 echo ""
 
-read -p "  Press Enter to connect a bank (or 'n' to skip): " choice
+read -p "  Press Enter to connect a bank, 'p' to paste a token, or 'n' to skip: " choice
 while [ "$choice" != "n" ]; do
-    export PATH="$HOME/.local/bin:$PATH"
-    # Ensure credentials are set
-    if [ -z "$PLAID_CLIENT_ID" ] || [ -z "$PLAID_SECRET" ]; then
-        echo -e "  Enter your Plaid credentials from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
-        read -p "  Client ID: " PLAID_CLIENT_ID
-        read -p "  Secret (Production): " PLAID_SECRET
-        export PLAID_CLIENT_ID PLAID_SECRET
-    fi
-    uv run plaid_sync.py --add-bank
-    ADD_BANK_EXIT=$?
-    if [ "$ADD_BANK_EXIT" -ne 0 ]; then
-        warn "Failed — likely a credentials mismatch (multiple Plaid teams?)."
-        echo -e "  Paste correct keys from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
-        echo ""
-        read -p "  Client ID: " PLAID_CLIENT_ID
-        read -p "  Secret (Production): " PLAID_SECRET
-        export PLAID_CLIENT_ID PLAID_SECRET
-        # Save correct secret to config so it doesn't fail again
-        if [ -f ~/.config/plaid-cli/config.json ]; then
-            python3 -c "
+    if [ "$choice" = "p" ]; then
+        read -p "  Access token: " manual_token
+        read -p "  Account name (e.g. Bluevine): " manual_name
+        read -p "  Type (checking or credit_card): " manual_type
+        read -p "  Last 4 digits (mask): " manual_mask
+        echo "{\"access_token\":\"$manual_token\",\"accounts\":[{\"name\":\"$manual_name\",\"mask\":\"$manual_mask\",\"type\":\"$manual_type\"}]}" >> /tmp/plaid-tokens-all.jsonl
+        success "Token saved for matching"
+    else
+        export PATH="$HOME/.local/bin:$PATH"
+        # Ensure credentials are set
+        if [ -z "$PLAID_CLIENT_ID" ] || [ -z "$PLAID_SECRET" ]; then
+            echo -e "  Enter your Plaid credentials from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
+            read -p "  Client ID: " PLAID_CLIENT_ID
+            read -p "  Secret (Production): " PLAID_SECRET
+            export PLAID_CLIENT_ID PLAID_SECRET
+        fi
+        uv run plaid_sync.py --add-bank
+        ADD_BANK_EXIT=$?
+        if [ "$ADD_BANK_EXIT" -ne 0 ]; then
+            warn "Failed — likely a credentials mismatch (multiple Plaid teams?)."
+            echo -e "  Paste correct keys from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
+            echo ""
+            read -p "  Client ID: " PLAID_CLIENT_ID
+            read -p "  Secret (Production): " PLAID_SECRET
+            export PLAID_CLIENT_ID PLAID_SECRET
+            if [ -f ~/.config/plaid-cli/config.json ]; then
+                python3 -c "
 import json
 with open('$HOME/.config/plaid-cli/config.json') as f: d=json.load(f)
 d.setdefault('environments',{}).setdefault('production',{})['secret']='$PLAID_SECRET'
 with open('$HOME/.config/plaid-cli/config.json','w') as f: json.dump(d,f,indent=2)
 " 2>/dev/null
+            fi
+            uv run plaid_sync.py --add-bank || warn "Still failing — check your credentials"
         fi
-        uv run plaid_sync.py --add-bank || warn "Still failing — check your credentials"
-    fi
 
-    # If bank was connected, save token for later matching (after Wave setup)
-    if [ -f /tmp/plaid-new-token.txt ]; then
-        cat /tmp/plaid-new-token.txt >> /tmp/plaid-tokens-all.jsonl
-        rm -f /tmp/plaid-new-token.txt
-        success "Bank token saved for matching"
+        # If bank was connected, save token for later matching (after Wave setup)
+        if [ -f /tmp/plaid-new-token.txt ]; then
+            cat /tmp/plaid-new-token.txt >> /tmp/plaid-tokens-all.jsonl
+            rm -f /tmp/plaid-new-token.txt
+            success "Bank token saved for matching"
+        fi
     fi
 
     echo ""
-    read -p "  Connect another bank? (y/n): " choice
+    read -p "  Connect another bank? (y/n, or 'p' to paste token): " choice
 done
 
 echo ""
