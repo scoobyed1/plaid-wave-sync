@@ -321,7 +321,7 @@ echo ""
 
 if [ -f /tmp/plaid-tokens-all.jsonl ]; then
     info "Matching your bank accounts to Wave..."
-    PLAID_ACCESS_TOKENS=$(WAVE_ACCESS_TOKEN="$WAVE_ACCESS_TOKEN" WAVE_BUSINESS_ID="$WAVE_BUSINESS_ID" uv run --with httpx python3 -c "
+    WAVE_ACCESS_TOKEN="$WAVE_ACCESS_TOKEN" WAVE_BUSINESS_ID="$WAVE_BUSINESS_ID" uv run --with httpx python3 -c "
 import json, os, sys, httpx
 
 # Load all connected bank tokens
@@ -355,19 +355,25 @@ for t in tokens:
     for acct in t['accounts']:
         mask = acct['mask']
         acct_type = acct['type']
-        # Match by mask in Wave account name
         matched = next((w for w in wave_accounts if mask in w), None)
         if matched:
             entries.append(f\"{acct['name']}:{t['access_token']}:{matched}:{acct_type}\")
-            print(f'  ✓ {acct[\"name\"]} (mask={mask}) → {matched} ({acct_type})', file=sys.stderr)
+            print(f'  ✓ {acct[\"name\"]} (mask={mask}) → {matched} ({acct_type})')
         else:
-            print(f'  ⚠ {acct[\"name\"]} (mask={mask}) — no match, skipping', file=sys.stderr)
+            print(f'  ⚠ {acct[\"name\"]} (mask={mask}) — no match found')
 
-print(','.join(entries), end='')
-" 2>&1 | tee /tmp/match-output.txt | grep "^  " || true)
+with open('/tmp/plaid-access-tokens.txt', 'w') as f:
+    f.write(','.join(entries))
+" 2>/dev/null
 
-    export PLAID_ACCESS_TOKENS=$(grep -v "^  " /tmp/match-output.txt)
-    rm -f /tmp/plaid-tokens-all.jsonl /tmp/match-output.txt
+    PLAID_ACCESS_TOKENS=$(cat /tmp/plaid-access-tokens.txt 2>/dev/null)
+    export PLAID_ACCESS_TOKENS
+    rm -f /tmp/plaid-tokens-all.jsonl /tmp/plaid-access-tokens.txt
+    if [ -n "$PLAID_ACCESS_TOKENS" ]; then
+        success "PLAID_ACCESS_TOKENS built: $PLAID_ACCESS_TOKENS"
+    else
+        warn "No accounts matched — you'll need to set PLAID_ACCESS_TOKENS manually"
+    fi
 fi
 
 # ─── Step 5: Keywords ─────────────────────────────────────────────────────────
@@ -512,8 +518,8 @@ step "Step 6/6 · Save secrets to GitHub"
 
 read -p "  Auto-save secrets to this repo? (y/n): " save_secrets
 if [ "$save_secrets" = "y" ]; then
-    CLIENT_ID="${PLAID_CLIENT_ID:-$(plaid config 2>/dev/null | grep 'Client ID' | awk '{print $NF}')}"
-    SECRET="${PLAID_SECRET:-$(grep -o '"secret": *"[^"]*"' ~/.config/plaid-cli/config.json 2>/dev/null | tail -1 | cut -d'"' -f4)}"
+    CLIENT_ID="${PLAID_CLIENT_ID}"
+    SECRET="${PLAID_SECRET}"
 
     # Test if we have permission, if not re-auth gh
     if ! gh secret set PLAID_CLIENT_ID --body "$CLIENT_ID" 2>/dev/null; then
