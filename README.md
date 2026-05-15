@@ -16,8 +16,6 @@ Automatically sync bank transactions from [Plaid](https://plaid.com) → [Wave](
 
 [![Fork this repo](https://img.shields.io/badge/1-Fork_this_repo_→-181717?style=for-the-badge&logo=github)](../../fork)
 
-Click above to create your own copy. After forking, make it **private** (Settings → General → Change visibility) to keep your financial data hidden.
-
 ### Step 2 → Open in Codespaces
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/jeffreylsoffer/plaid-wave-sync?quickstart=1)
