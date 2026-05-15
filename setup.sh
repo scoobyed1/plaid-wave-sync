@@ -127,10 +127,23 @@ else
 
     read -p "  Paste the failed localhost URL: " callback_url
     [ -n "$callback_url" ] && curl -s "$callback_url" &>/dev/null
+    sleep 3
     wait $PLAID_PID 2>/dev/null
+    success "Logged in"
 
-    plaid keys fetch &>/dev/null &
+    plaid keys fetch 2>/dev/null &
     spinner $! "Fetching API keys"
+
+    if plaid config 2>/dev/null | grep -q "client_id"; then
+        success "API keys saved"
+    else
+        warn "Couldn't fetch keys automatically."
+        echo -e "  Grab them from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
+        read -p "  Client ID: " plaid_client_id
+        read -p "  Secret (Production): " plaid_secret
+        plaid config set --client-id "$plaid_client_id" --secret "$plaid_secret" --env production 2>/dev/null
+        success "Credentials saved manually"
+    fi
 fi
 
 # ─── Step 3: Connect banks ────────────────────────────────────────────────────
