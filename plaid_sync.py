@@ -179,10 +179,14 @@ def fetch_plaid_transactions(access_token, days=30):
                 log.error("═══════════════════════════════════════════════════════")
                 log.error("⚠️  BANK TOKEN EXPIRED — action required!")
                 log.error("═══════════════════════════════════════════════════════")
-                log.error("Your bank connection needs to be re-authenticated.")
-                log.error("Open a Codespace and run:  ./setup.sh")
-                log.error("Or locally:  uv run plaid_sync.py --add-bank")
-                log.error("Then update the PLAID_ACCESS_TOKENS secret.")
+                try:
+                    url, _ = generate_reauth_link(access_token)
+                    log.error(f"Re-auth now (link expires in 30 min): {url}")
+                except Exception:
+                    pass
+                log.error("")
+                log.error("Or run:  uv run plaid_sync.py --reauth")
+                log.error("Or open a Codespace and run:  ./setup.sh")
                 log.error("═══════════════════════════════════════════════════════")
                 sys.exit(2)
             return []
@@ -372,6 +376,7 @@ def main():
     parser.add_argument("--reconcile", action="store_true")
     parser.add_argument("--dump-accounts", action="store_true")
     parser.add_argument("--add-bank", action="store_true", help="Connect a new bank via Hosted Link")
+    parser.add_argument("--reauth", action="store_true", help="Generate a re-auth link for an expired token")
     parser.add_argument("--debug", action="store_true")
     args = parser.parse_args()
 
@@ -417,6 +422,30 @@ def main():
                 }, f)
         else:
             print("\n✗ Timed out.")
+        return
+
+    # ── Re-auth mode ──────────────────────────────────────────────────────────
+    if args.reauth:
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+        tokens = os.environ.get("PLAID_ACCESS_TOKENS", "")
+        if not tokens:
+            print("No PLAID_ACCESS_TOKENS set.")
+            sys.exit(1)
+        for entry in tokens.split(","):
+            parts = entry.strip().split(":")
+            if len(parts) < 2:
+                continue
+            name, token = parts[0], parts[1]
+            print(f"\nGenerating re-auth link for {name}...")
+            try:
+                url, _ = generate_reauth_link(token)
+                if url:
+                    print(f"  \033[0;36m{url}\033[0m")
+                    print(f"  (expires in 30 minutes)")
+                else:
+                    print(f"  Token is still valid (no re-auth needed)")
+            except Exception as e:
+                print(f"  Error: {e}")
         return
 
     biz_id = get_business_id()
