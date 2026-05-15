@@ -2,7 +2,7 @@
 
 Automatically sync bank transactions from [Plaid](https://plaid.com) → [Wave](https://www.waveapps.com) accounting. No manual data entry.
 
-- **Keyword-based categorization** — build using your previous year's general ledger
+- **Keyword-based categorization** — auto-generated from your previous year's general ledger
 - **Deduplication** — safe to re-run anytime (uses Plaid transaction IDs)
 - **Credit card support** — handles both checking and CC accounts
 - **Invoice matching** — auto-marks invoices as paid when deposits match
@@ -24,12 +24,13 @@ Click above to create your own copy. Your secrets and config stay private in you
 
 The setup script runs automatically and walks you through everything:
 - Creates your Plaid account & activates trial (10 free bank connections)
-- Connects your bank accounts (Codespaces auto-tunnels the login page)
-- Shows your Wave accounts
-- Generates keyword mappings with Copilot from your Wave general ledger CSV
+- Connects your bank accounts via Plaid Hosted Link
+- Shows your Wave accounts and matches them to your banks
+- Generates keyword mappings from your Wave general ledger CSV
 - Saves all secrets to your repo
+- Enables the workflow and triggers a test run
 
-`plaid-cli`, `uv`, and `gh` are pre-installed. Once setup completes, close the Codespace — everything runs automatically from there.
+Once setup completes, close the Codespace — everything runs automatically from there.
 
 ---
 
@@ -81,8 +82,8 @@ Plaid (bank)              keywords.json           Wave (accounting)
 
 | Platform | How |
 |----------|-----|
-| **GitHub Actions** (recommended) | Fork → add secrets → done. Included in `.github/workflows/` |
-| **Any VPS / cron** | `0 6 * * * cd /path && uv run plaid_sync.py --days 3` |
+| **GitHub Actions** (recommended) | Fork → setup → done. Runs daily at 9am ET. |
+| **Any VPS / cron** | `0 13 * * * cd /path && uv run plaid_sync.py --days 3` (9am ET / 1pm UTC) |
 | **Systemd timer** | See below |
 
 <details>
@@ -106,7 +107,7 @@ ExecStart=/usr/local/bin/uv run plaid_sync.py --days 3
 Description=Daily plaid sync
 
 [Timer]
-OnCalendar=*-*-* 06:00:00
+OnCalendar=*-*-* 13:00:00
 Persistent=true
 
 [Install]
@@ -130,7 +131,10 @@ Yes. Duplicates are silently skipped.
 The script generates a Plaid Hosted Link URL for re-auth. Open it in any browser, log in, done. Token stays the same.
 
 **Do I need an LLM?**
-No. The script is pure keyword matching. [KEYWORDS_GUIDE.md](KEYWORDS_GUIDE.md) shows how to use an LLM as a one-time helper to *build* your keyword file.
+No. Keywords are auto-generated from your Wave general ledger CSV — the script reads how you've already categorized transactions and builds the mapping. No AI needed.
+
+**What about credit card payments?**
+CC payments (transfers between checking and CC) can't be recorded via Wave's API as inter-account transfers. They go to "Uncategorized Expense" for you to recategorize in Wave as a CC payment. All actual CC charges sync correctly as expenses.
 
 ## Requirements
 
