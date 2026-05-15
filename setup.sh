@@ -375,17 +375,37 @@ with open(sys.argv[1], encoding='utf-8-sig') as f:
 
 # Build keyword map: extract short vendor keywords from descriptions
 def extract_keyword(desc):
-    # Remove common suffixes/noise
-    desc = re.sub(r'\*[A-Z0-9]+$', '', desc)  # AMAZON MKTPL*RV28G0680 -> AMAZON MKTPL
-    desc = re.sub(r'\s+\d{4,}.*$', '', desc)  # Dropbox LWZMTQ19CTJ4 -> Dropbox
-    desc = re.sub(r'\s*#\d+.*$', '', desc)
-    desc = re.sub(r',\s*\d+$', '', desc)  # Wise Inc, 69 -> Wise Inc
-    desc = desc.strip().lower()
-    # Take first meaningful word(s)
+    # Strip transaction IDs, codes, dates, amounts
+    desc = re.sub(r'\*[A-Za-z0-9]{6,}', '', desc)       # AMAZON MKTPL*RV28G0680
+    desc = re.sub(r'\s+[A-Z0-9]{8,}', '', desc)         # Dropbox LWZMTQ19CTJ4
+    desc = re.sub(r'\s*#\d+.*$', '', desc)               # CLIPPER SYSTEMS MOBILE #1
+    desc = re.sub(r',\s*\d+$', '', desc)                 # Wise Inc, 69
+    desc = re.sub(r'\s+\d{3,}.*$', '', desc)             # AMC 9640 ONLINE -> AMC
+    desc = re.sub(r'\*\d[\d-]+', '', desc)               # ADOBE *800-833-6687 -> ADOBE
+    desc = re.sub(r'\s*PO\s+\d+', '', desc)              # USPS PO 3596580058
+    desc = re.sub(r'\s*O\*[\d-]+', '', desc)             # eBay O*07-11253-65884
+    desc = re.sub(r'\s*-\s*(NYC|TIMES|UNION).*$', '', desc)  # TST* FISH CHEEKS - NYC
+    desc = re.sub(r'\s*-\s*[A-Z].*$', '', desc)         # TST* ROSIE'S CAFE NORTHSI
+    desc = re.sub(r'\.COM$', '', desc, flags=re.IGNORECASE)  # EFILEMYFORMS.COM
+    desc = re.sub(r'\s+(INC|LLC|LTD|SERVICES|ONLINE|RECURRING|PAY|FILM|FESTIVAL)\.?$', '', desc, flags=re.IGNORECASE)
+    desc = desc.strip(' .,*').lower()
+    if not desc:
+        return ''
+    # For TST* prefixed (Toast POS restaurants), just use "tst"
+    if desc.startswith('tst'):
+        return 'tst'
+    # For AMAZON variants, just use "amazon"
+    if 'amazon' in desc:
+        return 'amazon'
+    # For eBay variants
+    if 'ebay' in desc:
+        return 'ebay'
+    # Take first word or two (the vendor name)
     parts = desc.split()
+    # If first word is short prefix (sp, eb, buy), include next word
     if len(parts) >= 2 and len(parts[0]) <= 3:
-        return ' '.join(parts[:3]).strip('*').strip()
-    return ' '.join(parts[:2]).strip('*').strip() if len(parts) > 1 else parts[0].strip('*') if parts else ''
+        return ' '.join(parts[:2])
+    return parts[0]
 
 keywords = {}
 skip_keywords = set()
@@ -395,13 +415,14 @@ for account, descs in account_transactions.items():
         continue
     for desc in descs:
         kw = extract_keyword(desc)
-        if not kw or len(kw) < 3:
+        if not kw or len(kw) < 4:
             continue
         # Skip if it matches a client name
         if any(c in kw for c in clients if len(c) > 3):
             continue
         # Skip overly generic keywords
-        if kw in ('ach', 'wire', 'payment', 'deposit', 'transfer', 'check', 'payroll'):
+        if kw in ('ach', 'wire', 'payment', 'deposit', 'transfer', 'check', 'payroll',
+                  'total', 'incoming', 'mobile', 'interest', 'wave', 'before-tax'):
             continue
         # If keyword already mapped to a different account, skip (ambiguous)
         if kw in keywords and keywords[kw] != account:
