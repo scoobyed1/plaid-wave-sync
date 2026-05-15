@@ -322,8 +322,52 @@ if [ -z "$csv_path" ]; then
 fi
 
 if [ -n "$csv_path" ] && [ -f "$csv_path" ]; then
+    # Generate KEYWORDS_GUIDE.md with their actual accounts
+    ACCOUNTS_OUTPUT=$(uv run plaid_sync.py --dump-accounts 2>/dev/null | grep -E "^\[|^  " | grep -v "Accounts Receivable\|Transfer Clearing\|Payroll Clearing\|Cash on Hand\|Wave Payroll\|Owner")
+
+    cat > KEYWORDS_GUIDE.md <<EOF
+# Generate keywords.json
+
+**DO NOT run any terminal commands. DO NOT parse the CSV programmatically. Just read it and write the JSON file.**
+
+## Task
+
+1. Read \`${csv_path}\`
+2. Look at the "Description" column to find recurring vendor/transaction names
+3. Write a \`keywords.json\` file to the workspace root
+
+## Output Format
+
+\`\`\`json
+{
+  "keywords": {
+    "vendor keyword": "Wave Account Name",
+    "another vendor": "Wave Account Name",
+    "transfer keyword": null
+  },
+  "fallback_expense": "Uncategorized Expense",
+  "fallback_income": "Other"
+}
+\`\`\`
+
+## Wave Account Names (use ONLY these as values)
+
+\`\`\`
+${ACCOUNTS_OUTPUT}
+\`\`\`
+
+## Rules
+- Keywords are **lowercase** substrings (e.g., "adobe" matches "ADOBE *800-833-6687")
+- Values must **exactly** match an account name from the list above
+- Only use Expense or Income accounts (NOT Asset, Equity, or Liability)
+- Use \`null\` for transfers, CC payments, and internal movements
+- Be conservative — only map vendors you see multiple times or are obvious
+- Use short keywords (e.g., "adobe" not "adobe creative cloud")
+- Do NOT use generic words that match too broadly (e.g., don't use "pay")
+EOF
+
     echo ""
-    success "CSV found: $csv_path"
+    success "Generated KEYWORDS_GUIDE.md with your accounts"
     echo ""
     echo -e "  ${BOLD}→ Open Copilot Chat (Cmd+Shift+I) and type:${NC}"
     echo ""
