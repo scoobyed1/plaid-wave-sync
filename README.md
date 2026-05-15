@@ -20,18 +20,31 @@ Click the button above (or the "Fork" button at the top of this page). This crea
 
 ### Step 1 → Get your API keys
 
-[![Get Plaid Keys](https://img.shields.io/badge/1a-Plaid_Dashboard-0A85FF?style=for-the-badge)](https://dashboard.plaid.com/signup)
-[![Get Wave Token](https://img.shields.io/badge/1b-Wave_API_Token-1C6DD0?style=for-the-badge)](https://developer.waveapps.com/hc/en-us/articles/360019762711)
+The fastest way is with [Plaid CLI](https://plaid.com/docs/resources/cli/) — it handles account creation, trial activation, and bank linking all in one tool:
 
-You need:
-- Plaid: `client_id` and `secret` (trial plan = 10 free bank connections)
-- Wave: API access token
+```bash
+brew install plaid/plaid-cli/plaid
+plaid register    # creates your Plaid account
+plaid trial       # activates trial (10 free bank connections)
+plaid keys fetch  # saves your client_id + secret locally
+```
+
+Then get your Wave token:
+
+[![Get Wave Token](https://img.shields.io/badge/Wave-Get_API_Token-1C6DD0?style=for-the-badge)](https://developer.waveapps.com/hc/en-us/articles/360019762711)
 
 ### Step 2 → Connect your bank
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/jeffreylsoffer/plaid-wave-sync?quickstart=1)
+**Option A: Plaid CLI** (recommended)
 
-Once the terminal opens, run:
+```bash
+plaid link --products transactions
+plaid item list --json  # shows your access_token
+```
+
+**Option B: This script** (no install needed)
+
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/jeffreylsoffer/plaid-wave-sync?quickstart=1)
 
 ```bash
 export PLAID_CLIENT_ID=your_id_here
@@ -39,13 +52,7 @@ export PLAID_SECRET=your_secret_here
 uv run plaid_sync.py --add-bank
 ```
 
-1. A URL appears — open it in your browser
-2. Log into your bank
-3. The terminal prints your `access_token` — **save it**
-
-Repeat for each bank account.
-
-> **No Codespaces?** Run the same commands on your local machine. Just needs [uv](https://docs.astral.sh/uv/).
+Either way, you'll get an `access_token` for each bank account. Save these.
 
 ### Step 3 → Find your Wave account names
 
