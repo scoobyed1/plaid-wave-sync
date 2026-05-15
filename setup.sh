@@ -233,7 +233,7 @@ while [ "$choice" != "s" ]; do
         read -p "  Secret (Production): " PLAID_SECRET
         export PLAID_CLIENT_ID PLAID_SECRET
     fi
-    uv run plaid_sync.py --add-bank
+    uv run plaid_sync.py --add-bank 2>&1 | tee /tmp/add-bank-output.txt
     if [ $? -ne 0 ]; then
         warn "Failed — likely a credentials mismatch (multiple Plaid teams?)."
         echo -e "  Paste correct keys from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
@@ -241,8 +241,26 @@ while [ "$choice" != "s" ]; do
         read -p "  Client ID: " PLAID_CLIENT_ID
         read -p "  Secret (Production): " PLAID_SECRET
         export PLAID_CLIENT_ID PLAID_SECRET
-        uv run plaid_sync.py --add-bank || warn "Still failing — check your credentials"
+        uv run plaid_sync.py --add-bank 2>&1 | tee /tmp/add-bank-output.txt || warn "Still failing — check your credentials"
     fi
+
+    # If bank was connected, capture the token and ask for Wave account details
+    NEW_TOKEN=$(grep "access_token:" /tmp/add-bank-output.txt 2>/dev/null | awk '{print $2}')
+    if [ -n "$NEW_TOKEN" ]; then
+        echo ""
+        read -p "  Name for this account (e.g. Bluevine, Chase): " BANK_NAME
+        read -p "  Wave account name (from --dump-accounts): " WAVE_ACCT_NAME
+        read -p "  Type (checking or credit_card): " ACCT_TYPE
+        ENTRY="${BANK_NAME}:${NEW_TOKEN}:${WAVE_ACCT_NAME}:${ACCT_TYPE}"
+        if [ -z "$PLAID_ACCESS_TOKENS" ]; then
+            PLAID_ACCESS_TOKENS="$ENTRY"
+        else
+            PLAID_ACCESS_TOKENS="${PLAID_ACCESS_TOKENS},${ENTRY}"
+        fi
+        export PLAID_ACCESS_TOKENS
+        success "Added: $BANK_NAME → $WAVE_ACCT_NAME ($ACCT_TYPE)"
+    fi
+
     echo ""
     read -p "  Connect another bank? (Enter = yes, 's' = done): " choice
 done
@@ -458,16 +476,21 @@ if [ "$save_secrets" = "y" ]; then
     [ -n "$WAVE_BUSINESS_ID" ] && gh secret set WAVE_BUSINESS_ID --body "$WAVE_BUSINESS_ID" &>/dev/null && success "Saved WAVE_BUSINESS_ID"
 
     echo ""
-    info "Last one — your Plaid access tokens."
-    info "Format: Name:access-token:Wave Account Name:type"
-    info "Example: MyBank:access-prod-xxx:Business Checking (001):checking"
-    echo ""
-    echo -e "  Get tokens with: ${CYAN}plaid item list --json${NC}"
-    echo ""
-    read -p "  Paste PLAID_ACCESS_TOKENS (or Enter to skip): " tokens
-    if [ -n "$tokens" ]; then
-        gh secret set PLAID_ACCESS_TOKENS --body "$tokens" &>/dev/null &
+    if [ -n "$PLAID_ACCESS_TOKENS" ]; then
+        gh secret set PLAID_ACCESS_TOKENS --body "$PLAID_ACCESS_TOKENS" &>/dev/null &
         spinner $! "Saving PLAID_ACCESS_TOKENS"
+    else
+        info "Last one — your Plaid access tokens."
+        info "Format: Name:access-token:Wave Account Name:type"
+        info "Example: MyBank:access-prod-xxx:Business Checking (001):checking"
+        echo ""
+        echo -e "  Get tokens with: ${CYAN}plaid item list --json${NC}"
+        echo ""
+        read -p "  Paste PLAID_ACCESS_TOKENS (or Enter to skip): " tokens
+        if [ -n "$tokens" ]; then
+            gh secret set PLAID_ACCESS_TOKENS --body "$tokens" &>/dev/null &
+            spinner $! "Saving PLAID_ACCESS_TOKENS"
+        fi
     fi
 else
     warn "Add secrets manually: Settings → Secrets → Actions"
