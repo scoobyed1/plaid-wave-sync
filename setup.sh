@@ -168,28 +168,15 @@ if [ -z "$PLAID_CLIENT_ID" ]; then
         wait $PLAID_PID 2>/dev/null || true
         wait $CURL_PID 2>/dev/null || true
 
-        # Login succeeded — get client_id from CLI, ask for secret, save to config
+        # Login succeeded — get credentials from config
         success "Logged in"
         TEAM_ID=$(plaid teams list 2>/dev/null | grep '\*' | awk '{print $2}')
         [ -z "$TEAM_ID" ] && TEAM_ID=$(plaid teams list 2>/dev/null | grep -i "Individual" | awk '{print $2}')
         [ -n "$TEAM_ID" ] && plaid teams use "$TEAM_ID" &>/dev/null
         plaid keys fetch &>/dev/null || true
         export PLAID_CLIENT_ID=$(plaid config 2>/dev/null | grep "Client ID" | awk '{print $NF}')
+        export PLAID_SECRET=$(grep -o '"secret": *"[^"]*"' ~/.config/plaid-cli/config.json 2>/dev/null | tail -1 | cut -d'"' -f4)
         success "Client ID: $PLAID_CLIENT_ID"
-
-        echo -e "  Enter your secret from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
-        read -p "  Secret (Production): " PLAID_SECRET
-        export PLAID_SECRET
-
-        # Save correct secret to config so future runs work
-        if [ -f ~/.config/plaid-cli/config.json ]; then
-            python3 -c "
-import json
-with open('$HOME/.config/plaid-cli/config.json') as f: d=json.load(f)
-d.setdefault('environments',{}).setdefault('production',{})['secret']='$PLAID_SECRET'
-with open('$HOME/.config/plaid-cli/config.json','w') as f: json.dump(d,f,indent=2)
-" 2>/dev/null
-        fi
     else
         wait $PLAID_PID 2>/dev/null || true
         warn "Invalid URL. Let's enter credentials manually instead:"
@@ -255,6 +242,15 @@ while [ "$choice" != "s" ]; do
         read -p "  Client ID: " PLAID_CLIENT_ID
         read -p "  Secret (Production): " PLAID_SECRET
         export PLAID_CLIENT_ID PLAID_SECRET
+        # Save correct secret to config so it doesn't fail again
+        if [ -f ~/.config/plaid-cli/config.json ]; then
+            python3 -c "
+import json
+with open('$HOME/.config/plaid-cli/config.json') as f: d=json.load(f)
+d.setdefault('environments',{}).setdefault('production',{})['secret']='$PLAID_SECRET'
+with open('$HOME/.config/plaid-cli/config.json','w') as f: json.dump(d,f,indent=2)
+" 2>/dev/null
+        fi
         uv run plaid_sync.py --add-bank | tee /tmp/add-bank-output.txt || warn "Still failing — check your credentials"
     fi
 
