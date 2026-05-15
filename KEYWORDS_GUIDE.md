@@ -2,11 +2,7 @@
 
 Use any LLM (ChatGPT, Claude, Gemini, etc.) to help build your `keywords.json` from your transaction history.
 
-## Step 1: Export your transactions
-
-Export a CSV from your bank or download from Plaid. You need the transaction names/descriptions.
-
-## Step 2: Get your Wave account names
+## Step 1: Get your Wave account names
 
 ```bash
 uv run plaid_sync.py --dump-accounts
@@ -14,9 +10,9 @@ uv run plaid_sync.py --dump-accounts
 
 Copy the list of account names from the output.
 
-## Step 3: Prompt your LLM
+## Step 2: Prompt your LLM
 
-Paste this prompt into your LLM of choice, replacing the placeholders:
+Upload your bank CSV (or Wave's Account Transactions export) along with this prompt:
 
 ---
 
@@ -26,8 +22,7 @@ I have a script that categorizes bank transactions into accounting categories us
 Here are my Wave accounting expense/income account names:
 [PASTE YOUR --dump-accounts OUTPUT HERE]
 
-Here are my recent bank transaction descriptions (one per line):
-[PASTE YOUR TRANSACTION NAMES HERE]
+I'm attaching a CSV of my bank transactions / general ledger. Analyze the transaction descriptions and build keyword mappings.
 
 Rules:
 - Keywords are lowercase substrings that match against transaction descriptions
@@ -36,6 +31,7 @@ Rules:
 - Be conservative — only map keywords you're confident about
 - Use shorter keywords when a vendor always goes to the same category (e.g., "adobe" not "adobe creative cloud")
 - Avoid overly generic keywords that could false-match (e.g., don't use "pay" — it matches too many things)
+- Group similar vendors under the same keyword when possible
 
 Output format — valid JSON:
 {
@@ -50,6 +46,10 @@ Output format — valid JSON:
 
 Generate the keywords.json for my transactions.
 ```
+
+---
+
+> **Tip:** Most LLMs (ChatGPT, Claude, Gemini) accept CSV file uploads directly. Upload the file rather than pasting — it handles thousands of rows better and catches patterns you'd miss manually.
 
 ---
 
