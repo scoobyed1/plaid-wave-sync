@@ -410,6 +410,10 @@ for kw, accounts in keyword_counts.items():
     best_account = max(accounts, key=accounts.get)
     keywords[kw] = best_account
 
+# If both "uber eats" and "uber" exist, force "uber" to Travel Expense
+if 'uber eats' in keywords and 'uber' in keywords:
+    keywords['uber'] = 'Travel Expense'
+
 # Add null entries for common transfers
 for pattern in ('transfer to', 'transfer from', 'chase credit', 'automatic payment', 'autopay'):
     keywords[pattern] = None
