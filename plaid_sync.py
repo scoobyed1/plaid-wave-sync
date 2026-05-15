@@ -383,6 +383,7 @@ def main():
 
     # ── Add bank mode ─────────────────────────────────────────────────────────
     if args.add_bank:
+        logging.getLogger("httpx").setLevel(logging.WARNING)
         url, link_token = generate_new_link()
         if not url:
             print("\n✗ Failed to generate link. Check credentials above.")
