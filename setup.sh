@@ -104,15 +104,18 @@ else
     read -p "  Already have a Plaid Developer account? (y/n): " has_account
     if [ "$has_account" != "y" ]; then
         echo ""
-        plaid register 2>/dev/null || true
+        echo -e "  ${BOLD}1.${NC} Create your Plaid account (link will appear):"
+        plaid register
+        echo ""
         read -p "  Done signing up? Press Enter..."
         echo ""
-        plaid trial 2>/dev/null || true
+        echo -e "  ${BOLD}2.${NC} Activate trial plan:"
+        plaid trial
+        echo ""
         read -p "  Done with trial? Press Enter..."
         echo ""
     fi
 
-    echo ""
     echo -e "  ${BOLD}Log in to Plaid:${NC}"
     echo -e "  1. A link will appear — click it and log in"
     echo -e "  2. Browser will fail on a localhost URL — ${GREEN}that's expected${NC}"
@@ -128,17 +131,17 @@ else
     read -p "  Paste the failed localhost URL: " callback_url
     [ -n "$callback_url" ] && curl -s "$callback_url" &>/dev/null
     sleep 3
-    wait $PLAID_PID 2>/dev/null
+    wait $PLAID_PID 2>/dev/null || true
     success "Logged in"
 
-    plaid keys fetch 2>/dev/null &
-    spinner $! "Fetching API keys"
-
-    if plaid config 2>/dev/null | grep -q "client_id"; then
+    echo ""
+    info "Fetching API keys..."
+    if plaid keys fetch 2>/tmp/plaid-keys.log; then
         success "API keys saved"
     else
-        warn "Couldn't fetch keys automatically."
+        warn "keys fetch failed: $(cat /tmp/plaid-keys.log)"
         echo -e "  Grab them from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
+        echo ""
         read -p "  Client ID: " plaid_client_id
         read -p "  Secret (Production): " plaid_secret
         plaid config set --client-id "$plaid_client_id" --secret "$plaid_secret" --env production 2>/dev/null
