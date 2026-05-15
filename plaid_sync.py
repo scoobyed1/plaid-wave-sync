@@ -61,6 +61,7 @@ def parse_accounts():
 # ─── Logging ──────────────────────────────────────────────────────────────────
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger("plaid_sync")
 
 # ─── API helpers ──────────────────────────────────────────────────────────────
@@ -535,14 +536,14 @@ def main():
                 if fallback_acct:
                     line_id = fallback_acct["id"]
                     matched = f"UNCATEGORIZED → {fallback_acct['name']}"
-                    log.info(f"  UNMATCHED → {fallback}: {name} | ${abs(amount):.2f}")
+                    log.debug(f"  UNMATCHED → {fallback}: {name} | ${abs(amount):.2f}")
                 else:
                     log.error(f"  NO MATCH: {name} | ${abs(amount):.2f}")
                     errors += 1
                     continue
 
             direction = "EXPENSE" if is_expense else "INCOME"
-            log.info(f"  {direction}: {name} | ${abs(amount):.2f} → {matched}")
+            log.debug(f"  {direction}: {name} | ${abs(amount):.2f} → {matched}")
 
             invoice_matched = None
             if not is_expense and acct_type == "checking" and open_invoices:
