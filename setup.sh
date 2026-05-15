@@ -101,7 +101,7 @@ step "Step 2/6 · Plaid account"
 if plaid config 2>/dev/null | grep -q "client_id"; then
     success "Already logged in to Plaid"
 else
-    read -p "  Already have a Plaid account? (y/n): " has_account
+    read -p "  Already have a Plaid Developer account? (y/n): " has_account
     if [ "$has_account" = "y" ]; then
         echo ""
         info "Logging in..."
