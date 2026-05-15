@@ -388,7 +388,7 @@ def main():
         if not url:
             print("\n✗ Failed to generate link. Check credentials above.")
             sys.exit(1)
-        print(f"\nOpen this link to connect a new bank:\n  {url}\n")
+        print(f"\nOpen this link to connect a new bank:\n  \033[0;36m{url}\033[0m\n")
         print("Waiting for you to complete... (Ctrl+C to cancel)")
         public_token = poll_link_result(link_token)
         if public_token:
