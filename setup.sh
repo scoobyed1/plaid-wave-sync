@@ -466,6 +466,9 @@ fi
 # Enable the Actions workflow
 gh workflow enable sync.yml 2>/dev/null && success "GitHub Actions workflow enabled" || true
 
+# Trigger a test run
+gh workflow run sync.yml -f days=3 -f dry_run=true 2>/dev/null && success "Test run triggered (dry-run, check Actions tab for results)" || true
+
 echo ""
 echo -e "  ${BOLD}  ╔══════════════════════════════════════════╗${NC}"
 echo -e "  ${BOLD}  ║  ${GREEN}✓ Setup complete!${NC}${BOLD}                      ║${NC}"
