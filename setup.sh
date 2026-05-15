@@ -223,8 +223,8 @@ info "Check status: https://dashboard.plaid.com/activity/status/oauth-institutio
 info "If you need to come back later, reopen this Codespace and run: ./setup.sh"
 echo ""
 
-read -p "  Press Enter to connect a bank (or 's' to skip): " choice
-while [ "$choice" != "s" ]; do
+read -p "  Press Enter to connect a bank (or 'n' to skip): " choice
+while [ "$choice" != "n" ]; do
     export PATH="$HOME/.local/bin:$PATH"
     # Ensure credentials are set
     if [ -z "$PLAID_CLIENT_ID" ] || [ -z "$PLAID_SECRET" ]; then
@@ -262,7 +262,7 @@ with open('$HOME/.config/plaid-cli/config.json','w') as f: json.dump(d,f,indent=
     fi
 
     echo ""
-    read -p "  Connect another bank? (Enter = yes, 's' = done): " choice
+    read -p "  Connect another bank? (y/n): " choice
 done
 
 echo ""
