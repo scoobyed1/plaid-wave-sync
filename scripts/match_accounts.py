@@ -14,13 +14,22 @@ with open('/tmp/plaid-tokens-all.jsonl') as f:
 wave_accounts = []
 biz_id = os.environ.get('WAVE_BUSINESS_ID', '')
 wave_token = os.environ.get('WAVE_ACCESS_TOKEN', '')
+
+if not wave_token or not biz_id:
+    print(f"  ✗ Missing env vars: WAVE_ACCESS_TOKEN={'set' if wave_token else 'EMPTY'}, WAVE_BUSINESS_ID={'set' if biz_id else 'EMPTY'}")
+    sys.exit(1)
+
 page = 1
 while True:
     r = httpx.post('https://gql.waveapps.com/graphql/public',
         headers={'Authorization': f'Bearer {wave_token}'},
         json={'query': 'query($id:ID!,$p:Int!){business(id:$id){accounts(page:$p,pageSize:50){pageInfo{totalPages}edges{node{name type{name} isArchived}}}}}',
               'variables': {'id': biz_id, 'page': page}}, timeout=30)
-    d = r.json()['data']['business']['accounts']
+    resp = r.json()
+    if 'errors' in resp or 'data' not in resp:
+        print(f"  ✗ Wave API error: {resp.get('errors', resp)}")
+        sys.exit(1)
+    d = resp['data']['business']['accounts']
     for e in d['edges']:
         n = e['node']
         if not n['isArchived'] and n['type']['name'] in ('Assets', 'Liabilities & Credit Cards'):

@@ -87,6 +87,6 @@ output = {
 }
 
 with open('keywords.json', 'w') as f:
-    json.dump(output, f, indent=2)
+    json.dump(output, f, indent=2, ensure_ascii=False)
 
 print(f'Generated {len(keywords)} keywords across {len(set(v for v in keywords.values() if v))} categories')
