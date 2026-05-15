@@ -29,10 +29,13 @@ Write `keywords.json` with this exact structure:
 - Keywords are **lowercase** substrings (e.g., "adobe" matches "ADOBE *800-833-6687")
 - Values must **exactly** match an account name from the list below
 - Only use Expense or Income accounts (NOT Asset, Equity, or Liability)
-- Use `null` for transfers, CC payments, and internal movements
+- Use `null` ONLY for internal transfers and CC payments (money moving between your own accounts)
+- Do NOT use `null` for income/deposits — leave those unmapped so they fall to the "Other" fallback
+- Do NOT map client/customer names (e.g., companies that pay you invoices) — those are handled separately by invoice matching
+- Do NOT invent vendors that aren't in the CSV — only map what you actually see
 - Use short keywords — just the vendor name (e.g., "adobe" not "adobe *800-833-6687")
-- Do NOT use generic words that match too broadly (e.g., don't use "pay" or "payment")
-- **Map every vendor you can identify, even if it only appears once** — if the category is obvious from the name, include it
+- Do NOT use generic words that match too broadly (e.g., don't use "pay", "payment", "deposit")
+- **Map every vendor you can identify** — if the category is obvious from the name, include it
 - A vendor that is BOTH a client (pays you) AND a service (you pay them) is fine to map — the script determines expense vs income from the transaction amount, not the keyword
 - When in doubt between two categories, pick the more specific one
 
