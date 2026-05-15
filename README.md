@@ -20,7 +20,7 @@ Click the button above (or the "Fork" button at the top of this page). This crea
 
 ### Step 1 → Get your API keys
 
-[![Get Plaid Keys](https://img.shields.io/badge/1a-Plaid_Dashboard-0A85FF?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2Zy8+)](https://dashboard.plaid.com/signup)
+[![Get Plaid Keys](https://img.shields.io/badge/1a-Plaid_Dashboard-0A85FF?style=for-the-badge)](https://dashboard.plaid.com/signup)
 [![Get Wave Token](https://img.shields.io/badge/1b-Wave_API_Token-1C6DD0?style=for-the-badge)](https://developer.waveapps.com/hc/en-us/articles/360019762711)
 
 You need:
