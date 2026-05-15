@@ -328,33 +328,18 @@ if [ -n "$csv_path" ] && [ -f "$csv_path" ]; then
     info "Building keywords.json from your existing categorization..."
     
     uv run --with httpx python3 -c "
-import csv, json, re, sys, os, httpx
+import csv, json, re, sys, os
 
-# Get client names from Wave invoices
-clients = set()
-biz_id = os.environ.get('WAVE_BUSINESS_ID', '')
-token = os.environ.get('WAVE_ACCESS_TOKEN', '')
-if biz_id and token:
-    try:
-        r = httpx.post('https://gql.waveapps.com/graphql/public',
-            headers={'Authorization': f'Bearer {token}'},
-            json={'query': 'query(\$id:ID!){business(id:\$id){invoices(page:1,pageSize:100){edges{node{customer{name}}}}}}',
-                  'variables': {'id': biz_id}}, timeout=30)
-        for e in r.json().get('data',{}).get('business',{}).get('invoices',{}).get('edges',[]):
-            clients.add(e['node']['customer']['name'].lower())
-    except: pass
-
-# Parse the Wave General Ledger CSV — transactions are grouped under account headers
+# Parse the Wave General Ledger CSV — only extract from EXPENSE sections
 expense_income_accounts = set()
 VALID_TYPES = ('Accounting Fees', 'Advertising & Promotion', 'Bank Service Charges',
     'Computer – Hardware', 'Computer – Hosting', 'Computer – Internet', 'Computer – Software',
-    'Dues & Subscriptions', 'Insurance', 'Interest Expense', 'Meals and Entertainment',
+    'Dues & Subscriptions', 'Insurance', 'Meals and Entertainment',
     'Office Supplies', 'Payroll Employer Taxes', 'Payroll Gross Pay',
     'Payroll – Salary & Wages', 'Postage & Delivery', 'Professional Fees',
     'Rent Expense', 'Subcontracted Services', 'Taxes – Corporate Tax',
     'Telephone – Wireless', 'Travel Expense', 'Uncategorized Expense',
-    'Vehicle – Fuel', 'Video Gear', 'Interest', 'Other', 'Rentals',
-    'Additional Crew', 'Production Expenses')
+    'Vehicle – Fuel', 'Video Gear')
 
 current_account = None
 account_transactions = {}  # {account: [descriptions]}
@@ -375,34 +360,29 @@ with open(sys.argv[1], encoding='utf-8-sig') as f:
 
 # Build keyword map: extract short vendor keywords from descriptions
 def extract_keyword(desc):
-    # Strip transaction IDs, codes, dates, amounts
-    desc = re.sub(r'\*[A-Za-z0-9]{6,}', '', desc)       # AMAZON MKTPL*RV28G0680
-    desc = re.sub(r'\s+[A-Z0-9]{8,}', '', desc)         # Dropbox LWZMTQ19CTJ4
-    desc = re.sub(r'\s*#\d+.*$', '', desc)               # CLIPPER SYSTEMS MOBILE #1
-    desc = re.sub(r',\s*\d+$', '', desc)                 # Wise Inc, 69
-    desc = re.sub(r'\s+\d{3,}.*$', '', desc)             # AMC 9640 ONLINE -> AMC
-    desc = re.sub(r'\*\d[\d-]+', '', desc)               # ADOBE *800-833-6687 -> ADOBE
-    desc = re.sub(r'\s*PO\s+\d+', '', desc)              # USPS PO 3596580058
-    desc = re.sub(r'\s*O\*[\d-]+', '', desc)             # eBay O*07-11253-65884
-    desc = re.sub(r'\s*-\s*(NYC|TIMES|UNION).*$', '', desc)  # TST* FISH CHEEKS - NYC
-    desc = re.sub(r'\s*-\s*[A-Z].*$', '', desc)         # TST* ROSIE'S CAFE NORTHSI
-    desc = re.sub(r'\.COM$', '', desc, flags=re.IGNORECASE)  # EFILEMYFORMS.COM
+    desc = re.sub(r'\*[A-Za-z0-9]{6,}', '', desc)
+    desc = re.sub(r'\s+[A-Z0-9]{8,}', '', desc)
+    desc = re.sub(r'\s*#\d+.*$', '', desc)
+    desc = re.sub(r',\s*\d+$', '', desc)
+    desc = re.sub(r'\s+\d{3,}.*$', '', desc)
+    desc = re.sub(r'\*\d[\d-]+', '', desc)
+    desc = re.sub(r'\s*PO\s+\d+', '', desc)
+    desc = re.sub(r'\s*O\*[\d-]+', '', desc)
+    desc = re.sub(r'\s*-\s*(NYC|TIMES|UNION).*$', '', desc)
+    desc = re.sub(r'\s*-\s*[A-Z].*$', '', desc)
+    desc = re.sub(r'\.COM$', '', desc, flags=re.IGNORECASE)
     desc = re.sub(r'\s+(INC|LLC|LTD|SERVICES|ONLINE|RECURRING|PAY|FILM|FESTIVAL)\.?$', '', desc, flags=re.IGNORECASE)
     desc = desc.strip(' .,*').lower()
-    if not desc:
-        return ''
-    # For TST* prefixed (Toast POS restaurants), just use "tst"
-    if desc.startswith('tst'):
-        return 'tst'
-    # For AMAZON variants, just use "amazon"
-    if 'amazon' in desc:
-        return 'amazon'
-    # For eBay variants
-    if 'ebay' in desc:
-        return 'ebay'
-    # Take first word or two (the vendor name)
+    if not desc: return ''
+    # Specific multi-word vendors (order matters — check these first)
+    if 'uber eats' in desc: return 'uber eats'
+    if desc.startswith('tst'): return 'tst'
+    if 'amazon' in desc: return 'amazon'
+    if 'ebay' in desc: return 'ebay'
+    if 'spitfire' in desc: return 'spitfire'
+    if 'citibik' in desc: return 'citibik'
+    # Take first word or two
     parts = desc.split()
-    # If first word is short prefix (sp, eb, buy), include next word
     if len(parts) >= 2 and len(parts[0]) <= 3:
         return ' '.join(parts[:2])
     return parts[0]
@@ -415,12 +395,11 @@ for account, descs in account_transactions.items():
         continue
     for desc in descs:
         kw = extract_keyword(desc)
-        if not kw or len(kw) < 4:
-            continue
-        if any(c in kw for c in clients if len(c) > 3):
+        if not kw or len(kw) < 3:
             continue
         if kw in ('ach', 'wire', 'payment', 'deposit', 'transfer', 'check', 'payroll',
-                  'total', 'incoming', 'mobile', 'interest', 'wave', 'before-tax'):
+                  'total', 'incoming', 'mobile', 'interest', 'wave', 'before-tax',
+                  '(deleted)', 'super'):
             continue
         keyword_counts.setdefault(kw, {}).setdefault(account, 0)
         keyword_counts[kw][account] += 1
