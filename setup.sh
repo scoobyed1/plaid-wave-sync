@@ -99,6 +99,11 @@ fi
 step "Step 2/6 · Plaid account"
 
 if plaid config 2>/dev/null | grep -q "Client ID"; then
+    # Make sure correct team is selected
+    TEAM_ID=$(plaid teams list 2>/dev/null | grep '\*' | awk '{print $2}')
+    [ -z "$TEAM_ID" ] && TEAM_ID=$(plaid teams list 2>/dev/null | grep -i "Individual" | awk '{print $2}')
+    [ -n "$TEAM_ID" ] && plaid teams use "$TEAM_ID" &>/dev/null
+    plaid keys fetch &>/dev/null || true
     export PLAID_CLIENT_ID=$(plaid config 2>/dev/null | grep "Client ID" | awk '{print $NF}')
     export PLAID_SECRET=$(grep -o '"secret": *"[^"]*"' ~/.config/plaid-cli/config.json 2>/dev/null | tail -1 | cut -d'"' -f4)
     success "Already logged in (Client ID: $PLAID_CLIENT_ID)"
