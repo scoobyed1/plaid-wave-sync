@@ -272,6 +272,31 @@ if [ -z "$WAVE_ACCESS_TOKEN" ]; then
 fi
 
 echo ""
+# Check for multiple businesses
+BIZ_LIST=$(WAVE_ACCESS_TOKEN="$WAVE_ACCESS_TOKEN" uv run --with httpx python3 -c "
+import os, httpx
+r = httpx.post('https://gql.waveapps.com/graphql/public',
+    headers={'Authorization': f'Bearer {os.environ[\"WAVE_ACCESS_TOKEN\"]}'},
+    json={'query': '{ businesses(page:1, pageSize:10) { edges { node { id name isArchived } } } }'},
+    timeout=30)
+for e in r.json()['data']['businesses']['edges']:
+    if not e['node']['isArchived']:
+        print(f\"{e['node']['id']}|{e['node']['name']}\")
+" 2>/dev/null)
+
+BIZ_COUNT=$(echo "$BIZ_LIST" | wc -l | tr -d ' ')
+if [ "$BIZ_COUNT" -gt "1" ]; then
+    echo -e "  ${BOLD}Multiple Wave businesses found:${NC}"
+    echo "$BIZ_LIST" | awk -F'|' '{printf "    %d. %s\n", NR, $2}'
+    echo ""
+    read -p "  Which one? (number): " biz_num
+    export WAVE_BUSINESS_ID=$(echo "$BIZ_LIST" | sed -n "${biz_num}p" | cut -d'|' -f1)
+    success "Selected: $(echo "$BIZ_LIST" | sed -n "${biz_num}p" | cut -d'|' -f2)"
+else
+    export WAVE_BUSINESS_ID=$(echo "$BIZ_LIST" | head -1 | cut -d'|' -f1)
+fi
+
+echo ""
 uv run plaid_sync.py --dump-accounts 2>/dev/null | head -30
 echo ""
 
