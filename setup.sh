@@ -276,7 +276,9 @@ echo -e "  Export your transaction history from Wave:"
 echo -e "  ${CYAN}Wave → Reports → Account Transactions (General Ledger) → Export CSV${NC}"
 echo -e "  (Set date range to last 12 months)"
 echo ""
-echo -e "  Drag the CSV into the ${BOLD}imports/${NC} folder. This folder is gitignored."
+echo -e "  Then drag the CSV into the ${BOLD}imports/${NC} folder:"
+echo -e "  Open the Explorer panel (${BOLD}Cmd+Shift+E${NC} on Mac, ${BOLD}Ctrl+Shift+E${NC} on Windows)"
+echo -e "  and drop your file into the ${BOLD}imports${NC} folder."
 echo ""
 read -p "  Path to CSV (e.g. imports/transactions.csv) or Enter to skip: " csv_path
 
