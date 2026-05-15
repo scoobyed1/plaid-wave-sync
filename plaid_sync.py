@@ -364,6 +364,8 @@ def main():
 
     for var in ("PLAID_CLIENT_ID", "PLAID_SECRET", "WAVE_ACCESS_TOKEN"):
         if not os.environ.get(var):
+            if var == "WAVE_ACCESS_TOKEN" and args.add_bank:
+                continue
             log.error(f"Missing env var: {var}")
             sys.exit(1)
 
