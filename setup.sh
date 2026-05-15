@@ -149,9 +149,14 @@ else
         wait $CURL_PID 2>/dev/null || true
 
         # Login succeeded — now select team and fetch keys
-        INDIVIDUAL_TEAM=$(plaid teams list 2>/dev/null | grep -i "Individual account" | awk '{print $2}')
-        FIRST_TEAM=$(plaid teams list 2>/dev/null | awk 'NR==2 {print $2}')
-        TEAM_ID="${INDIVIDUAL_TEAM:-$FIRST_TEAM}"
+        # Select the active team (*) or one with "Individual" in the name
+        TEAM_ID=$(plaid teams list 2>/dev/null | grep '\*' | awk '{print $2}')
+        if [ -z "$TEAM_ID" ]; then
+            TEAM_ID=$(plaid teams list 2>/dev/null | grep -i "Individual" | awk '{print $2}')
+        fi
+        if [ -z "$TEAM_ID" ]; then
+            TEAM_ID=$(plaid teams list 2>/dev/null | awk 'NR==2 {print $2}')
+        fi
         [ -n "$TEAM_ID" ] && plaid teams use "$TEAM_ID" &>/dev/null
         plaid keys fetch &>/dev/null || true
 
