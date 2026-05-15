@@ -24,7 +24,7 @@ while True:
     r = httpx.post('https://gql.waveapps.com/graphql/public',
         headers={'Authorization': f'Bearer {wave_token}'},
         json={'query': 'query($id:ID!,$p:Int!){business(id:$id){accounts(page:$p,pageSize:50){pageInfo{totalPages}edges{node{name type{name} isArchived}}}}}',
-              'variables': {'id': biz_id, 'page': page}}, timeout=30)
+              'variables': {'id': biz_id, 'p': page}}, timeout=30)
     resp = r.json()
     if 'errors' in resp or 'data' not in resp:
         print(f"  ✗ Wave API error: {resp.get('errors', resp)}")
