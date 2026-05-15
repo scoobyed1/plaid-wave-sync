@@ -23,7 +23,7 @@ You need:
 
 ### Step 2 → Connect your bank
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/YOUR_USERNAME/plaid-wave-sync?quickstart=1)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/jeffreylsoffer/plaid-wave-sync?quickstart=1)
 
 Once the terminal opens, run:
 
