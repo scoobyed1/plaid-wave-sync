@@ -101,31 +101,37 @@ step "Step 2/6 · Plaid account"
 if plaid config 2>/dev/null | grep -q "client_id"; then
     success "Already logged in to Plaid"
 else
-    echo -e "  ${BOLD}1.${NC} Create your Plaid account (click the link below):"
-    echo ""
-    plaid register 2>&1 | grep -o 'https://[^ ]*' | head -1 | while read url; do
-        echo -e "     ${CYAN}$url${NC}"
-    done
-    plaid register 2>/dev/null || true
-    echo ""
-    read -p "  Done signing up? Press Enter to continue..."
-    echo ""
+    read -p "  Already have a Plaid account? (y/n): " has_account
+    if [ "$has_account" = "y" ]; then
+        echo ""
+        info "Logging in..."
+        plaid login
+        echo ""
+        read -p "  Done logging in? Press Enter to continue..."
+        plaid keys fetch &>/dev/null &
+        spinner $! "Fetching API keys"
+    else
+        echo -e "  ${BOLD}1.${NC} Create your Plaid account:"
+        plaid register 2>/dev/null || true
+        echo ""
+        read -p "  Done signing up? Press Enter to continue..."
+        echo ""
 
-    echo -e "  ${BOLD}2.${NC} Log in to connect your account:"
-    plaid login 2>/dev/null || true
-    echo ""
-    read -p "  Done logging in? Press Enter to continue..."
-    echo ""
+        echo -e "  ${BOLD}2.${NC} Log in:"
+        plaid login 2>/dev/null || true
+        echo ""
+        read -p "  Done logging in? Press Enter to continue..."
+        echo ""
 
-    echo -e "  ${BOLD}3.${NC} Activate trial plan (click the link below):"
-    echo -e "     ${CYAN}https://dashboard.plaid.com/trial-plan${NC}"
-    plaid trial 2>/dev/null || true
-    echo ""
-    read -p "  Done with trial signup? Press Enter to continue..."
-    echo ""
+        echo -e "  ${BOLD}3.${NC} Activate trial plan (10 free bank connections):"
+        plaid trial 2>/dev/null || true
+        echo ""
+        read -p "  Done with trial signup? Press Enter to continue..."
+        echo ""
 
-    plaid keys fetch &>/dev/null &
-    spinner $! "Fetching API keys"
+        plaid keys fetch &>/dev/null &
+        spinner $! "Fetching API keys"
+    fi
 fi
 
 # ─── Step 3: Connect banks ────────────────────────────────────────────────────
