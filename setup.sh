@@ -322,6 +322,23 @@ if [ -z "$csv_path" ]; then
 fi
 
 if [ -n "$csv_path" ] && [ -f "$csv_path" ]; then
+    # Extract unique transaction descriptions from the Wave CSV
+    export PATH="$HOME/.local/bin:$PATH"
+    uv run --with httpx python3 -c "
+import csv, sys
+seen = set()
+with open(sys.argv[1]) as f:
+    for row in csv.reader(f):
+        if len(row) > 2:
+            desc = row[2].strip()
+            if desc and desc not in seen and desc not in ('Description','Starting Balance','Totals and Ending Balance','Balance Change'):
+                seen.add(desc)
+                print(desc)
+" "$csv_path" 2>/dev/null > imports/unique_descriptions.txt
+
+    DESC_COUNT=$(wc -l < imports/unique_descriptions.txt | tr -d ' ')
+    success "Extracted $DESC_COUNT unique transaction descriptions"
+
     ACCOUNTS_OUTPUT=$(uv run plaid_sync.py --dump-accounts 2>/dev/null | grep -E "^\[|^  " | grep -v "Accounts Receivable\|Transfer Clearing\|Payroll Clearing\|Cash on Hand\|Wave Payroll\|Owner")
 
     CLIENTS=$(WAVE_ACCESS_TOKEN="$WAVE_ACCESS_TOKEN" WAVE_BUSINESS_ID="${WAVE_BUSINESS_ID}" uv run --with httpx python3 -c "
@@ -341,12 +358,12 @@ for n in sorted(names):
     cat > KEYWORDS_GUIDE.md <<EOF
 # Generate keywords.json
 
-**DO NOT run any terminal commands. DO NOT parse the CSV programmatically. Just read it and write the JSON file.**
+**DO NOT run any terminal commands. Just read the file and write the JSON.**
 
 ## Task
 
-1. Read \`${csv_path}\`
-2. Look at the "Description" column to find vendor/transaction names
+1. Read \`imports/unique_descriptions.txt\` — each line is a transaction description from the bank
+2. For each one, decide which Wave account it belongs to
 3. Write a \`keywords.json\` file to the workspace root
 
 ## Output Format
@@ -369,7 +386,7 @@ for n in sorted(names):
 ${CLIENTS}
 \`\`\`
 
-These are customers who pay invoices. If you see them in the CSV, SKIP them entirely.
+These are customers who pay invoices. If you see them in the descriptions, SKIP them.
 
 ## Rules
 
@@ -379,10 +396,9 @@ These are customers who pay invoices. If you see them in the CSV, SKIP them enti
 - Use \`null\` ONLY for internal transfers and CC payments (money moving between own accounts)
 - Do NOT use \`null\` for income/deposits — leave unmapped to fall to "Other" fallback
 - Do NOT map any client names listed above
-- Do NOT invent vendors not in the CSV — only map what you see
-- Only map OUTGOING payments (debits). If a company only appears as incoming money, skip it.
-- Use short keywords (e.g., "adobe" not "adobe *800-833-6687")
-- Do NOT use overly broad keywords (e.g., "pay", "payment", "deposit", or someone's first name)
+- Only map OUTGOING payments. If a name only appears as incoming money, skip it.
+- Use short keywords — just the core vendor name
+- Do NOT use overly broad keywords (e.g., "pay", "payment", "deposit", or a person's first name)
 - **Map every identifiable vendor** — if the category is obvious, include it
 - When in doubt, pick the more specific category
 
