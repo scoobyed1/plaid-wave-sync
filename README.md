@@ -2,7 +2,7 @@
 
 Automatically sync bank transactions from [Plaid](https://plaid.com) → [Wave](https://www.waveapps.com) accounting. No manual data entry.
 
-- **Keyword-based categorization** — fast, deterministic, free (no LLM needed)
+- **Keyword-based categorization** — build using your previous year's general ledger
 - **Deduplication** — safe to re-run anytime (uses Plaid transaction IDs)
 - **Credit card support** — handles both checking and CC accounts
 - **Invoice matching** — auto-marks invoices as paid when deposits match
@@ -12,13 +12,13 @@ Automatically sync bank transactions from [Plaid](https://plaid.com) → [Wave](
 
 ## Setup (5 minutes)
 
-### Step 0 → Fork this repo
+### Step 1 → Fork this repo
 
-[![Fork this repo](https://img.shields.io/badge/0-Fork_this_repo_→-181717?style=for-the-badge&logo=github)](../../fork)
+[![Fork this repo](https://img.shields.io/badge/1-Fork_this_repo_→-181717?style=for-the-badge&logo=github)](../../fork)
 
 Click above to create your own copy. Your secrets and config stay private in your fork.
 
-### Step 1 → Open in Codespaces & run setup
+### Step 2 → Open in Codespaces & run setup
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/jeffreylsoffer/plaid-wave-sync?quickstart=1)
 
@@ -35,15 +35,15 @@ This walks you through everything interactively:
 
 `plaid-cli` and `uv` are pre-installed in the Codespace.
 
-### Step 2 → Build your keyword mappings
+### Step 3 → Build your keyword mappings
 
 Edit `keywords.json` to map transaction descriptions → Wave accounts.
 
 See **[KEYWORDS_GUIDE.md](KEYWORDS_GUIDE.md)** for how to use ChatGPT/Claude to generate this from your bank CSV in 2 minutes.
 
-### Step 3 → Add secrets to your fork
+### Step 4 → Add secrets to your fork
 
-[![Add Repository Secrets](https://img.shields.io/badge/3-Add_Secrets_→-181717?style=for-the-badge&logo=github)](../../settings/secrets/actions)
+[![Add Repository Secrets](https://img.shields.io/badge/4-Add_Secrets_→-181717?style=for-the-badge&logo=github)](../../settings/secrets/actions)
 
 The setup script tells you exactly what to paste. Format:
 
@@ -55,9 +55,9 @@ The setup script tells you exactly what to paste. Format:
 | `WAVE_BUSINESS_ID` | From setup output |
 | `PLAID_ACCESS_TOKENS` | `Name:access-token:Wave Account Name:type` |
 
-### Step 4 → Enable the workflow
+### Step 5 → Enable the workflow
 
-[![Go to Actions](https://img.shields.io/badge/4-Enable_Actions_→-2088FF?style=for-the-badge&logo=githubactions)](../../actions)
+[![Go to Actions](https://img.shields.io/badge/5-Enable_Actions_→-2088FF?style=for-the-badge&logo=githubactions)](../../actions)
 
 The sync runs daily at 6am UTC. Trigger manually to test. You can now close the Codespace.
 
