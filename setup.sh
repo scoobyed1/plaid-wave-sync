@@ -137,10 +137,18 @@ else
 
     read -p "  Paste the failed localhost URL: " callback_url
     if echo "$callback_url" | grep -q "localhost.*callback.*code="; then
-        timeout 5 curl -s "$callback_url" &>/dev/null || true
-        sleep 2
+        info "Sending callback to plaid login server..."
+        # Send callback to plaid login server, give it time to process
+        curl -v "$callback_url" &>/tmp/plaid-curl.log &
+        CURL_PID=$!
+        info "Waiting for token exchange (5s)..."
+        sleep 5
+        kill $CURL_PID 2>/dev/null || true
         kill $PLAID_PID 2>/dev/null || true
         wait $PLAID_PID 2>/dev/null || true
+        wait $CURL_PID 2>/dev/null || true
+        info "curl log: $(cat /tmp/plaid-curl.log 2>/dev/null | tail -5)"
+        info "plaid login log: $(cat /tmp/plaid-login.log 2>/dev/null | tail -5)"
         if plaid config 2>/dev/null | grep -q "client_id"; then
             success "Logged in"
         else
