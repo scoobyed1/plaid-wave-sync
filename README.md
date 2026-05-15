@@ -12,6 +12,12 @@ Automatically sync bank transactions from [Plaid](https://plaid.com) → [Wave](
 
 ## Setup (5 minutes)
 
+### Step 0 → Fork this repo
+
+[![Fork this repo](https://img.shields.io/badge/0-Fork_this_repo_→-181717?style=for-the-badge&logo=github)](../../fork)
+
+Click the button above (or the "Fork" button at the top of this page). This creates your own copy where GitHub Actions will run on your schedule with your secrets. All your config stays private in your fork.
+
 ### Step 1 → Get your API keys
 
 [![Get Plaid Keys](https://img.shields.io/badge/1a-Plaid_Dashboard-0A85FF?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2Zy8+)](https://dashboard.plaid.com/signup)
