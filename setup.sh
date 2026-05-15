@@ -345,7 +345,7 @@ while True:
     d = r.json()['data']['business']['accounts']
     for e in d['edges']:
         n = e['node']
-        if not n['isArchived']:
+        if not n['isArchived'] and n['type']['name'] in ('Assets', 'Liabilities & Credit Cards'):
             wave_accounts.append(n['name'])
     if page >= d['pageInfo']['totalPages']:
         break
@@ -356,24 +356,64 @@ for t in tokens:
     for acct in t['accounts']:
         mask = acct['mask']
         acct_type = acct['type']
+        # Match by mask in Wave account name (try full mask, then last 3 digits)
         matched = next((w for w in wave_accounts if mask in w), None)
+        if not matched and len(mask) >= 4:
+            matched = next((w for w in wave_accounts if mask[-3:] in w), None)
         if matched:
             entries.append(f\"{acct['name']}:{t['access_token']}:{matched}:{acct_type}\")
             print(f'  ✓ {acct[\"name\"]} (mask={mask}) → {matched} ({acct_type})')
         else:
-            print(f'  ⚠ {acct[\"name\"]} (mask={mask}) — no match found')
+            # Print options for user to pick
+            print(f'  ⚠ {acct[\"name\"]} (mask={mask}) — no auto-match')
+            print(f'UNMATCHED:{acct[\"name\"]}:{t[\"access_token\"]}:{acct_type}:{mask}')
 
 with open('/tmp/plaid-access-tokens.txt', 'w') as f:
     f.write(','.join(entries))
+
+# Also write wave account options for unmatched
+with open('/tmp/wave-account-options.txt', 'w') as f:
+    for w in wave_accounts:
+        f.write(w + '\n')
 " 2>/dev/null
 
-    PLAID_ACCESS_TOKENS=$(cat /tmp/plaid-access-tokens.txt 2>/dev/null)
+    # Handle unmatched accounts interactively
+    if [ -f /tmp/plaid-access-tokens.txt ]; then
+        PLAID_ACCESS_TOKENS=$(cat /tmp/plaid-access-tokens.txt)
+    fi
+
+    # Check for unmatched accounts in the output
+    if grep -q "UNMATCHED" /tmp/plaid-access-tokens.txt 2>/dev/null || [ -z "$PLAID_ACCESS_TOKENS" ]; then
+        # Show available Wave accounts
+        if [ -f /tmp/wave-account-options.txt ]; then
+            echo ""
+            echo -e "  ${BOLD}Available Wave accounts:${NC}"
+            cat /tmp/wave-account-options.txt | awk '{printf "    %d. %s\n", NR, $0}'
+            echo ""
+        fi
+        # Read the jsonl and ask for each
+        while IFS= read -r line; do
+            if [ -n "$line" ]; then
+                ACCT_NAME=$(echo "$line" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['accounts'][0]['name'])" 2>/dev/null)
+                ACCT_TOKEN=$(echo "$line" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['access_token'])" 2>/dev/null)
+                ACCT_TYPE=$(echo "$line" | python3 -c "import json,sys; d=json.load(sys.stdin); a=d['accounts'][0]; print('credit_card' if a['type']=='credit_card' else 'checking')" 2>/dev/null)
+                read -p "  Wave account for '$ACCT_NAME' ($ACCT_TYPE): " wave_name
+                if [ -n "$wave_name" ]; then
+                    ENTRY="${ACCT_NAME}:${ACCT_TOKEN}:${wave_name}:${ACCT_TYPE}"
+                    if [ -z "$PLAID_ACCESS_TOKENS" ]; then
+                        PLAID_ACCESS_TOKENS="$ENTRY"
+                    else
+                        PLAID_ACCESS_TOKENS="${PLAID_ACCESS_TOKENS},${ENTRY}"
+                    fi
+                fi
+            fi
+        done < /tmp/plaid-tokens-all.jsonl
+    fi
+
     export PLAID_ACCESS_TOKENS
-    rm -f /tmp/plaid-tokens-all.jsonl /tmp/plaid-access-tokens.txt
+    rm -f /tmp/plaid-tokens-all.jsonl /tmp/plaid-access-tokens.txt /tmp/wave-account-options.txt
     if [ -n "$PLAID_ACCESS_TOKENS" ]; then
-        success "PLAID_ACCESS_TOKENS built: $PLAID_ACCESS_TOKENS"
-    else
-        warn "No accounts matched — you'll need to set PLAID_ACCESS_TOKENS manually"
+        success "PLAID_ACCESS_TOKENS ready"
     fi
 fi
 
