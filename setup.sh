@@ -550,6 +550,9 @@ fi
 
 # ─── Done ─────────────────────────────────────────────────────────────────────
 
+# Enable the Actions workflow
+gh workflow enable sync.yml 2>/dev/null && success "GitHub Actions workflow enabled" || true
+
 echo ""
 echo -e "${BOLD}  ╔══════════════════════════════════════════╗${NC}"
 echo -e "${BOLD}  ║  ${GREEN}✓ Setup complete!${NC}${BOLD}                      ║${NC}"
