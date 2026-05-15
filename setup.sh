@@ -298,25 +298,24 @@ fi
 
 if [ -n "$csv_path" ] && [ -f "$csv_path" ]; then
     ACCOUNTS_OUTPUT=$(uv run plaid_sync.py --dump-accounts 2>/dev/null | grep -A1000 "^\[")
-    info "Generating keywords.json with Copilot..."
-    gh copilot -p "Read the file $csv_path. These are my Wave account names:
-
-$ACCOUNTS_OUTPUT
-
-Generate a keywords.json file mapping transaction keywords to Wave account names. Rules:
-- Keywords are lowercase substrings
-- Values must exactly match a Wave account name from above
-- Only map to Expense or Income accounts (NOT Asset/Liability)
-- CC payments should be null (skip)
-- Refunds are handled automatically
-- Use null for internal transfers
-- Output valid JSON: {keywords: {...}, fallback_expense: '...', fallback_income: '...'}
-
-Write the result to keywords.json" --no-confirm 2>/dev/null &
-    spinner $! "Generating keywords with Copilot"
+    echo ""
+    echo -e "  ${BOLD}Open Copilot Chat (Ctrl+Shift+I) and paste this prompt:${NC}"
+    echo ""
+    echo -e "  ─────────────────────────────────────────────"
+    echo -e "  Read ${csv_path} and generate a keywords.json file."
+    echo -e "  Map transaction keywords to these Wave accounts:"
+    echo -e ""
+    echo "$ACCOUNTS_OUTPUT" | head -20
+    echo -e ""
+    echo -e "  Rules: keywords are lowercase, values must exactly match"
+    echo -e "  an account name above. Use null to skip transfers."
+    echo -e "  Only map to Expense/Income accounts, not Asset/Liability."
+    echo -e "  ─────────────────────────────────────────────"
+    echo ""
+    read -p "  Press Enter when done..."
     success "Check keywords.json and edit if needed"
 else
-    warn "Skipped. See KEYWORDS_GUIDE.md to build keywords later."
+    warn "No CSV found. See KEYWORDS_GUIDE.md to build keywords later."
 fi
 
 # ─── Step 6: Save secrets ─────────────────────────────────────────────────────
