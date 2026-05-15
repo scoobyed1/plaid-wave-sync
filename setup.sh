@@ -258,6 +258,7 @@ with open('$HOME/.config/plaid-cli/config.json','w') as f: json.dump(d,f,indent=
     if [ -f /tmp/plaid-new-token.txt ]; then
         cat /tmp/plaid-new-token.txt >> /tmp/plaid-tokens-all.jsonl
         rm -f /tmp/plaid-new-token.txt
+        success "Bank token saved for matching"
     fi
 
     echo ""
@@ -525,7 +526,7 @@ if [ "$save_secrets" = "y" ]; then
     if ! gh secret set PLAID_CLIENT_ID --body "$CLIENT_ID" 2>/dev/null; then
         info "Need GitHub auth to save secrets (one-time)."
         unset GITHUB_TOKEN
-        gh auth login -w
+        gh auth login -w -p https --git-protocol https
     fi
 
     gh secret set PLAID_CLIENT_ID --body "$CLIENT_ID" &>/dev/null && success "Saved PLAID_CLIENT_ID"
