@@ -302,15 +302,20 @@ def generate_reauth_link(access_token):
 
 
 def generate_new_link():
-    data = plaid_post("/link/token/create", {
-        "client_name": "plaid-wave-sync",
-        "country_codes": ["US"],
-        "language": "en",
-        "user": {"client_user_id": "user"},
-        "products": ["transactions"],
-        "hosted_link": {},
-    })
-    return data.get("hosted_link_url"), data.get("link_token")
+    try:
+        data = plaid_post("/link/token/create", {
+            "client_name": "plaid-wave-sync",
+            "country_codes": ["US"],
+            "language": "en",
+            "user": {"client_user_id": "user"},
+            "products": ["transactions"],
+            "hosted_link": {},
+        })
+        return data.get("hosted_link_url"), data.get("link_token")
+    except Exception as e:
+        log.error(f"Failed to create link: {e}")
+        log.error(f"Check your PLAID_CLIENT_ID ({os.environ.get('PLAID_CLIENT_ID','not set')}) has trial/production access")
+        return None, None
 
 
 def poll_link_result(link_token, timeout=600, interval=10):
@@ -372,6 +377,9 @@ def main():
     # ── Add bank mode ─────────────────────────────────────────────────────────
     if args.add_bank:
         url, link_token = generate_new_link()
+        if not url:
+            print("\n✗ Failed to generate link. Check credentials above.")
+            return
         print(f"\nOpen this link to connect a new bank:\n  {url}\n")
         print("Waiting for you to complete... (Ctrl+C to cancel)")
         public_token = poll_link_result(link_token)
