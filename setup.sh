@@ -94,6 +94,13 @@ else
     export PATH="$HOME/.local/bin:$PATH"
 fi
 
+if ! command -v gh &>/dev/null; then
+    (curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg 2>/dev/null && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list >/dev/null && \
+    sudo apt-get update -qq && sudo apt-get install -y -qq gh) &>/tmp/gh-install.log &
+    spinner $! "Installing GitHub CLI"
+fi
+
 # ─── Step 2: Plaid account ────────────────────────────────────────────────────
 
 step "Step 2/6 · Plaid account"
