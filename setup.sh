@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+# No set -e — we handle errors explicitly with fallbacks
 
 # ─── Fancy output helpers ─────────────────────────────────────────────────────
 
@@ -27,7 +27,7 @@ spinner() {
     else
         printf "\r  ${RED}✗${NC} ${msg} (failed)\n"
     fi
-    return $exit_code
+    return 0
 }
 
 step() {
@@ -180,9 +180,7 @@ echo ""
 
 read -p "  Press Enter to connect a bank (or 's' to skip): " choice
 while [ "$choice" != "s" ]; do
-    plaid link --products transactions
-    echo ""
-    success "Bank connected!"
+    plaid link --products transactions || warn "Link failed — try again or skip"
     echo ""
     read -p "  Press Enter to connect another, or 's' when done: " choice
 done
