@@ -324,31 +324,41 @@ fi
 if [ -n "$csv_path" ] && [ -f "$csv_path" ]; then
     ACCOUNTS_OUTPUT=$(uv run plaid_sync.py --dump-accounts 2>/dev/null | grep -A1000 "^\[")
 
-    # Save prompt as a workspace file Copilot can read
-    cat > COPILOT_PROMPT.md <<EOF
-# Generate keywords.json
+    # Update KEYWORDS_GUIDE.md with their actual accounts and CSV path
+    cat > KEYWORDS_GUIDE.md <<EOF
+# Build Your Keywords
 
-Read the file \`${csv_path}\` and generate a \`keywords.json\` file in this workspace.
+Open Copilot Chat (**Ctrl+Shift+I** or **Cmd+Shift+I**) and send:
 
-Map transaction description keywords to these Wave account names:
+> @workspace Read \`${csv_path}\` and generate a \`keywords.json\` file. Map transaction keywords to the Wave accounts listed below. Keywords are lowercase substrings. Values must exactly match an account name. Only use Expense or Income accounts. Use null for transfers and CC payments. Output: \`{"keywords": {...}, "fallback_expense": "Uncategorized Expense", "fallback_income": "Other"}\`
+
+## Your Wave Accounts
 
 \`\`\`
 ${ACCOUNTS_OUTPUT}
 \`\`\`
 
-## Rules
+## Rules for Copilot
 - Keywords are lowercase substrings matched against transaction descriptions
 - Values must EXACTLY match one of the account names above
 - Only use Expense or Income accounts (NOT Asset, Equity, or Liability)
 - Use null for internal transfers and CC payments
-- Output valid JSON: \`{"keywords": {...}, "fallback_expense": "Uncategorized Expense", "fallback_income": "Other"}\`
+- Refunds are handled automatically by the script (negative amounts)
+- The same keyword works for both expenses and income
+
+## Validate
+
+\`\`\`bash
+uv run plaid_sync.py --dump-accounts
+uv run plaid_sync.py --dry-run --days 90
+\`\`\`
 EOF
 
     echo ""
-    success "Created COPILOT_PROMPT.md"
+    success "Updated KEYWORDS_GUIDE.md with your accounts"
     echo ""
     echo -e "  ${BOLD}→ Open Copilot Chat: Ctrl+Shift+I (or Cmd+Shift+I)${NC}"
-    echo -e "  ${BOLD}→ Type: @workspace /generate keywords from #file:COPILOT_PROMPT.md${NC}"
+    echo -e "  ${BOLD}→ Open KEYWORDS_GUIDE.md and copy the prompt at the top${NC}"
     echo ""
     read -p "  Press Enter when Copilot has generated keywords.json..."
     success "Check keywords.json and edit if needed"
