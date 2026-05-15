@@ -523,9 +523,21 @@ if [ "$save_secrets" = "y" ]; then
     fi
 
     gh secret set PLAID_CLIENT_ID --body "$CLIENT_ID" &>/dev/null && success "Saved PLAID_CLIENT_ID"
-    gh secret set PLAID_SECRET --body "$SECRET" &>/dev/null && success "Saved PLAID_SECRET"
-    gh secret set WAVE_ACCESS_TOKEN --body "$WAVE_ACCESS_TOKEN" &>/dev/null && success "Saved WAVE_ACCESS_TOKEN"
-    [ -n "$WAVE_BUSINESS_ID" ] && gh secret set WAVE_BUSINESS_ID --body "$WAVE_BUSINESS_ID" &>/dev/null && success "Saved WAVE_BUSINESS_ID"
+    if [ -n "$SECRET" ]; then
+        gh secret set PLAID_SECRET --body "$SECRET" &>/dev/null && success "Saved PLAID_SECRET"
+    else
+        warn "PLAID_SECRET is empty — set it manually"
+    fi
+    if [ -n "$WAVE_ACCESS_TOKEN" ]; then
+        gh secret set WAVE_ACCESS_TOKEN --body "$WAVE_ACCESS_TOKEN" &>/dev/null && success "Saved WAVE_ACCESS_TOKEN"
+    else
+        warn "WAVE_ACCESS_TOKEN is empty — set it manually"
+    fi
+    if [ -n "$WAVE_BUSINESS_ID" ]; then
+        gh secret set WAVE_BUSINESS_ID --body "$WAVE_BUSINESS_ID" &>/dev/null && success "Saved WAVE_BUSINESS_ID"
+    else
+        warn "WAVE_BUSINESS_ID is empty — set it manually"
+    fi
 
     echo ""
     if [ -n "$PLAID_ACCESS_TOKENS" ]; then
