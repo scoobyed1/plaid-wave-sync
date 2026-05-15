@@ -104,13 +104,15 @@ else
     read -p "  Already have a Plaid Developer account? (y/n): " has_account
     if [ "$has_account" != "y" ]; then
         echo ""
-        echo -e "  ${BOLD}1.${NC} Create your Plaid account (link will appear):"
-        plaid register
+        echo -e "  ${BOLD}1.${NC} Create your Plaid account:"
+        echo -e "     ${CYAN}https://dashboard.plaid.com/signup${NC}"
+        plaid register &>/dev/null || true
         echo ""
         read -p "  Done signing up? Press Enter..."
         echo ""
-        echo -e "  ${BOLD}2.${NC} Activate trial plan:"
-        plaid trial
+        echo -e "  ${BOLD}2.${NC} Activate trial plan (10 free connections):"
+        echo -e "     ${CYAN}https://dashboard.plaid.com/trial-plan${NC}"
+        plaid trial &>/dev/null || true
         echo ""
         read -p "  Done with trial? Press Enter..."
         echo ""
@@ -135,6 +137,15 @@ else
     success "Logged in"
 
     echo ""
+    # Select team (required before keys fetch)
+    TEAM_COUNT=$(plaid teams list --json 2>/dev/null | grep -c '"name"' || echo "0")
+    if [ "$TEAM_COUNT" -gt "1" ]; then
+        info "Multiple teams found — choose one:"
+        plaid teams choose
+    else
+        plaid teams choose 2>/dev/null || true
+    fi
+
     info "Fetching API keys..."
     if plaid keys fetch 2>/tmp/plaid-keys.log; then
         success "API keys saved"
