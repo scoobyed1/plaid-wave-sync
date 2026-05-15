@@ -138,13 +138,7 @@ else
 
     echo ""
     # Select team (required before keys fetch)
-    TEAM_COUNT=$(plaid teams list --json 2>/dev/null | grep -c '"name"' || echo "0")
-    if [ "$TEAM_COUNT" -gt "1" ]; then
-        info "Multiple teams found — choose one:"
-        plaid teams choose
-    else
-        plaid teams choose 2>/dev/null || true
-    fi
+    plaid teams choose 2>/dev/null || true
 
     info "Fetching API keys..."
     if plaid keys fetch 2>/tmp/plaid-keys.log; then
