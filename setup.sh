@@ -408,7 +408,7 @@ def extract_keyword(desc):
     return parts[0]
 
 keywords = {}
-skip_keywords = set()
+keyword_counts = {}  # {keyword: {account: count}}
 
 for account, descs in account_transactions.items():
     if account not in VALID_TYPES:
@@ -417,22 +417,19 @@ for account, descs in account_transactions.items():
         kw = extract_keyword(desc)
         if not kw or len(kw) < 4:
             continue
-        # Skip if it matches a client name
         if any(c in kw for c in clients if len(c) > 3):
             continue
-        # Skip overly generic keywords
         if kw in ('ach', 'wire', 'payment', 'deposit', 'transfer', 'check', 'payroll',
                   'total', 'incoming', 'mobile', 'interest', 'wave', 'before-tax'):
             continue
-        # If keyword already mapped to a different account, skip (ambiguous)
-        if kw in keywords and keywords[kw] != account:
-            skip_keywords.add(kw)
-            continue
-        keywords[kw] = account
+        keyword_counts.setdefault(kw, {}).setdefault(account, 0)
+        keyword_counts[kw][account] += 1
 
-# Remove ambiguous keywords
-for kw in skip_keywords:
-    keywords.pop(kw, None)
+# Pick the account with the most occurrences for each keyword
+keywords = {}
+for kw, accounts in keyword_counts.items():
+    best_account = max(accounts, key=accounts.get)
+    keywords[kw] = best_account
 
 # Add null entries for common transfers
 for pattern in ('transfer to', 'transfer from', 'chase credit', 'automatic payment', 'autopay'):
