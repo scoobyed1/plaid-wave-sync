@@ -467,12 +467,12 @@ fi
 gh workflow enable sync.yml 2>/dev/null && success "GitHub Actions workflow enabled" || true
 
 echo ""
-echo -e "${BOLD}  ╔══════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}  ║  ${GREEN}✓ Setup complete!${NC}${BOLD}                      ║${NC}"
-echo -e "${BOLD}  ╚══════════════════════════════════════════╝${NC}"
+echo -e "  ${BOLD}  ╔══════════════════════════════════════════╗${NC}"
+echo -e "  ${BOLD}  ║  ${GREEN}✓ Setup complete!${NC}${BOLD}                      ║${NC}"
+echo -e "  ${BOLD}  ╚══════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "  Next: Go to the ${BOLD}Actions${NC} tab and enable the workflow."
-echo -e "  Trigger it manually to test. It runs daily at 6am UTC."
+echo -e "  Your sync runs daily at 9am ET automatically."
+echo -e "  Trigger manually: ${CYAN}Actions tab → Run workflow${NC}"
 echo ""
-echo -e "  ${DIM}You can close this Codespace now — everything runs automatically.${NC}"
+echo -e "  ${DIM}You can close this Codespace now.${NC}"
 echo ""
