@@ -193,6 +193,7 @@ echo -e "  ${BOLD}Cmd+Click${NC} (or Ctrl+Click) the URL that appears."
 echo ""
 warn "Some banks (Chase, Schwab) need OAuth approval (~24hrs)."
 info "Check status: https://dashboard.plaid.com/activity/status/oauth-institutions"
+info "If you need to come back later, reopen this Codespace and run: ./setup.sh"
 echo ""
 
 read -p "  Press Enter to connect a bank (or 's' to skip): " choice
