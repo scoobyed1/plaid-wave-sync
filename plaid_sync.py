@@ -92,7 +92,14 @@ def plaid_post(endpoint, payload):
     payload["secret"] = os.environ["PLAID_SECRET"]
     def _call():
         r = httpx.post(f"{PLAID_BASE}{endpoint}", json=payload, timeout=30)
-        r.raise_for_status()
+        if r.status_code >= 400:
+            try:
+                err = r.json()
+                raise RuntimeError(f"Plaid {r.status_code}: {err.get('error_code', '')} - {err.get('error_message', r.text)}")
+            except Exception as e:
+                if "Plaid" in str(e):
+                    raise
+                r.raise_for_status()
         return r.json()
     return retry(_call)
 
