@@ -280,8 +280,14 @@ echo -e "  Then drag the CSV into the ${BOLD}imports/${NC} folder:"
 echo -e "  Open the Explorer panel (${BOLD}Cmd+Shift+E${NC} on Mac, ${BOLD}Ctrl+Shift+E${NC} on Windows)"
 echo -e "  and drop your file into the ${BOLD}imports${NC} folder."
 echo ""
-read -p "  Path to CSV (e.g. imports/transactions.csv) or Enter to skip: " csv_path
+read -p "  Path to CSV (drag file into terminal, or Enter to auto-find): " csv_path
 csv_path=$(echo "$csv_path" | tr -d "'" | tr -d '"')
+
+# Auto-find CSV if not specified
+if [ -z "$csv_path" ]; then
+    csv_path=$(find . imports/ -maxdepth 1 -name "*.csv" 2>/dev/null | head -1)
+    [ -n "$csv_path" ] && info "Found: $csv_path"
+fi
 
 if [ -n "$csv_path" ] && [ -f "$csv_path" ]; then
     ACCOUNTS_OUTPUT=$(uv run plaid_sync.py --dump-accounts 2>/dev/null | grep -A1000 "^\[")
