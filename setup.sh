@@ -250,8 +250,15 @@ echo ""
 step "Step 4/6 · Wave setup"
 
 if [ -z "$WAVE_ACCESS_TOKEN" ]; then
-    echo -e "  Get your Wave API token from:"
-    echo -e "  ${CYAN}https://developer.waveapps.com/hc/en-us/articles/360019762711${NC}"
+    echo -e "  Create a Wave app to get your API token:"
+    echo -e "  ${CYAN}https://developer-apps.waveapps.com/apps/create/${NC}"
+    echo ""
+    echo -e "  Fill in:"
+    echo -e "    Name:          ${BOLD}plaid-wave-sync${NC}"
+    echo -e "    Description:   ${BOLD}Syncs bank transactions from Plaid${NC}"
+    echo -e "    Redirect URI:  ${BOLD}http://localhost${NC}"
+    echo ""
+    echo -e "  After creating, copy the ${BOLD}Full Access Token${NC} from the app page."
     echo ""
     read -p "  Paste your Wave token: " WAVE_ACCESS_TOKEN
     export WAVE_ACCESS_TOKEN
