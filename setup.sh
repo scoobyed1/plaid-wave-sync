@@ -132,10 +132,20 @@ else
 
     read -p "  Paste the failed localhost URL: " callback_url
     if echo "$callback_url" | grep -q "localhost.*callback.*code="; then
-        curl -s "$callback_url" &>/dev/null
-        sleep 3
+        curl -s --max-time 5 "$callback_url" &>/dev/null
+        sleep 2
         wait $PLAID_PID 2>/dev/null || true
-        success "Logged in"
+        if plaid config 2>/dev/null | grep -q "client_id"; then
+            success "Logged in"
+        else
+            warn "Login didn't complete. Let's enter credentials manually:"
+            echo -e "  ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
+            echo ""
+            read -p "  Client ID: " plaid_client_id
+            read -p "  Secret (Production): " plaid_secret
+            plaid config set --client-id "$plaid_client_id" --secret "$plaid_secret" --env production 2>/dev/null
+            success "Credentials saved"
+        fi
     else
         wait $PLAID_PID 2>/dev/null || true
         warn "Invalid URL. Let's enter credentials manually instead:"
