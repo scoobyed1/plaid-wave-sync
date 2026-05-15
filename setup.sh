@@ -32,6 +32,11 @@ echo "▶ Step 2: Connect your bank accounts"
 echo "  This opens Plaid Link in your browser."
 echo "  (Codespaces will auto-tunnel the URL)"
 echo ""
+echo "  ⚠️  Some banks (Chase, Schwab, etc.) require OAuth registration"
+echo "     which takes up to 24 hours to activate. If you get an error,"
+echo "     check status here: https://dashboard.plaid.com/activity/status/oauth-institutions"
+echo "     Then re-run: plaid link --products transactions"
+echo ""
 read -p "  Press Enter to connect a bank (or 's' to skip): " choice
 while [ "$choice" != "s" ]; do
     plaid link --products transactions
