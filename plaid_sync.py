@@ -393,12 +393,24 @@ def main():
         public_token = poll_link_result(link_token)
         if public_token:
             access_token, item_id = exchange_public_token(public_token)
-            print(f"\n✓ Connected! Add to PLAID_ACCESS_TOKENS:")
-            print(f"  access_token: {access_token}")
-            print(f"  item_id: {item_id}")
-            # Write token to file for setup.sh to read
+            # Get account details
+            acct_data = plaid_post("/accounts/get", {"access_token": access_token})
+            accts = acct_data.get("accounts", [])
+            inst = acct_data.get("item", {}).get("institution_id", "")
+
+            print(f"\n✓ Connected!")
+            for a in accts:
+                acct_type = "credit_card" if a["type"] == "credit" else "checking"
+                print(f"  {a['name']} ({a['subtype']}) mask={a['mask']} → type={acct_type}")
+
+            # Write details to file for setup.sh
+            import json as _json
             with open("/tmp/plaid-new-token.txt", "w") as f:
-                f.write(access_token)
+                _json.dump({
+                    "access_token": access_token,
+                    "item_id": item_id,
+                    "accounts": [{"name": a["name"], "mask": a["mask"], "type": "credit_card" if a["type"] == "credit" else "checking"} for a in accts]
+                }, f)
         else:
             print("\n✗ Timed out.")
         return
