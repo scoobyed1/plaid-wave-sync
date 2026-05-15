@@ -18,48 +18,18 @@ Automatically sync bank transactions from [Plaid](https://plaid.com) → [Wave](
 
 Click above to create your own copy. Your secrets and config stay private in your fork.
 
-### Step 2 → Open in Codespaces & run setup
+### Step 2 → Open in Codespaces
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/jeffreylsoffer/plaid-wave-sync?quickstart=1)
 
-Once the terminal opens:
-
-```bash
-./setup.sh
-```
-
-This walks you through everything interactively:
+The setup script runs automatically and walks you through everything:
 - Creates your Plaid account & activates trial (10 free bank connections)
 - Connects your bank accounts (Codespaces auto-tunnels the login page)
-- Shows your Wave accounts for keyword mapping
+- Shows your Wave accounts
+- Generates keyword mappings with Copilot from your Wave general ledger CSV
+- Saves all secrets to your repo
 
-`plaid-cli` and `uv` are pre-installed in the Codespace.
-
-### Step 3 → Build your keyword mappings
-
-Edit `keywords.json` to map transaction descriptions → Wave accounts.
-
-See **[KEYWORDS_GUIDE.md](KEYWORDS_GUIDE.md)** for how to use ChatGPT/Claude to generate this from your bank CSV in 2 minutes.
-
-### Step 4 → Add secrets to your fork
-
-[![Add Repository Secrets](https://img.shields.io/badge/4-Add_Secrets_→-181717?style=for-the-badge&logo=github)](../../settings/secrets/actions)
-
-The setup script tells you exactly what to paste. Format:
-
-| Secret | Value |
-|--------|-------|
-| `PLAID_CLIENT_ID` | From setup output |
-| `PLAID_SECRET` | From setup output |
-| `WAVE_ACCESS_TOKEN` | Your Wave API token |
-| `WAVE_BUSINESS_ID` | From setup output |
-| `PLAID_ACCESS_TOKENS` | `Name:access-token:Wave Account Name:type` |
-
-### Step 5 → Enable the workflow
-
-[![Go to Actions](https://img.shields.io/badge/5-Enable_Actions_→-2088FF?style=for-the-badge&logo=githubactions)](../../actions)
-
-The sync runs daily at 6am UTC. Trigger manually to test. You can now close the Codespace.
+`plaid-cli`, `uv`, and `gh` are pre-installed. Once setup completes, close the Codespace — everything runs automatically from there.
 
 ---
 
