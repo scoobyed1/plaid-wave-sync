@@ -137,20 +137,25 @@ else
     success "Logged in"
 
     echo ""
-    # Select team (required before keys fetch)
-    plaid teams choose 2>/dev/null || true
-
-    info "Fetching API keys..."
-    if plaid keys fetch 2>/tmp/plaid-keys.log; then
+    if plaid keys fetch 2>/dev/null; then
         success "API keys saved"
     else
-        warn "keys fetch failed: $(cat /tmp/plaid-keys.log)"
-        echo -e "  Grab them from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
+        # Might need team selection first
+        plaid teams list 2>/dev/null
         echo ""
-        read -p "  Client ID: " plaid_client_id
-        read -p "  Secret (Production): " plaid_secret
-        plaid config set --client-id "$plaid_client_id" --secret "$plaid_secret" --env production 2>/dev/null
-        success "Credentials saved manually"
+        read -p "  Enter team name (or press Enter for default): " team_name
+        [ -n "$team_name" ] && plaid teams use "$team_name" 2>/dev/null
+        if plaid keys fetch 2>/dev/null; then
+            success "API keys saved"
+        else
+            warn "Couldn't fetch keys. Enter them manually:"
+            echo -e "  ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
+            echo ""
+            read -p "  Client ID: " plaid_client_id
+            read -p "  Secret (Production): " plaid_secret
+            plaid config set --client-id "$plaid_client_id" --secret "$plaid_secret" --env production 2>/dev/null
+            success "Credentials saved"
+        fi
     fi
 fi
 
