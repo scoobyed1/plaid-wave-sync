@@ -154,13 +154,9 @@ else
         plaid keys fetch &>/dev/null || true
 
         export PLAID_CLIENT_ID=$(plaid config 2>/dev/null | grep "Client ID" | awk '{print $NF}')
-        if [ -n "$PLAID_CLIENT_ID" ]; then
+        export PLAID_SECRET=$(grep -o '"secret": *"[^"]*"' ~/.config/plaid-cli/config.json 2>/dev/null | tail -1 | cut -d'"' -f4)
+        if [ -n "$PLAID_CLIENT_ID" ] && [ -n "$PLAID_SECRET" ]; then
             success "Logged in (Client ID: $PLAID_CLIENT_ID)"
-            if [ -z "$PLAID_SECRET" ]; then
-                echo -e "  Secret isn't shown by CLI. Get it from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
-                read -p "  Secret (Production): " PLAID_SECRET
-                export PLAID_SECRET
-            fi
         else
             warn "Couldn't get keys. Enter them manually:"
             echo -e "  ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
