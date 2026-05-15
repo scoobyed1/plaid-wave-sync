@@ -161,36 +161,15 @@ if [ -z "$PLAID_CLIENT_ID" ]; then
         wait $PLAID_PID 2>/dev/null || true
         wait $CURL_PID 2>/dev/null || true
 
-        # Login succeeded — now select team and fetch keys
-        # Select the active team (*) or one with "Individual" in the name
+        # Login succeeded — extract credentials from config
+        success "Logged in"
         TEAM_ID=$(plaid teams list 2>/dev/null | grep '\*' | awk '{print $2}')
-        if [ -z "$TEAM_ID" ]; then
-            TEAM_ID=$(plaid teams list 2>/dev/null | grep -i "Individual" | awk '{print $2}')
-        fi
-        if [ -z "$TEAM_ID" ]; then
-            TEAM_ID=$(plaid teams list 2>/dev/null | awk 'NR==2 {print $2}')
-        fi
+        [ -z "$TEAM_ID" ] && TEAM_ID=$(plaid teams list 2>/dev/null | grep -i "Individual" | awk '{print $2}')
         [ -n "$TEAM_ID" ] && plaid teams use "$TEAM_ID" &>/dev/null
         plaid keys fetch &>/dev/null || true
-
-        # Re-export after team switch
         export PLAID_CLIENT_ID=$(plaid config 2>/dev/null | grep "Client ID" | awk '{print $NF}')
         export PLAID_SECRET=$(grep -o '"secret": *"[^"]*"' ~/.config/plaid-cli/config.json 2>/dev/null | tail -1 | cut -d'"' -f4)
-
-        export PLAID_CLIENT_ID=$(plaid config 2>/dev/null | grep "Client ID" | awk '{print $NF}')
-        export PLAID_SECRET=$(grep -o '"secret": *"[^"]*"' ~/.config/plaid-cli/config.json 2>/dev/null | tail -1 | cut -d'"' -f4)
-        if [ -n "$PLAID_CLIENT_ID" ] && [ -n "$PLAID_SECRET" ]; then
-            success "Logged in (Client ID: $PLAID_CLIENT_ID)"
-        else
-            warn "Couldn't get keys. Enter them manually:"
-            echo -e "  ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
-            echo ""
-            read -p "  Client ID: " PLAID_CLIENT_ID
-            read -p "  Secret (Production): " PLAID_SECRET
-            export PLAID_CLIENT_ID PLAID_SECRET
-            plaid config set --client-id "$PLAID_CLIENT_ID" --secret "$PLAID_SECRET" --env production 2>/dev/null
-            success "Credentials saved"
-        fi
+        success "Client ID: $PLAID_CLIENT_ID"
     else
         wait $PLAID_PID 2>/dev/null || true
         warn "Invalid URL. Let's enter credentials manually instead:"
@@ -249,11 +228,13 @@ while [ "$choice" != "s" ]; do
     fi
     uv run plaid_sync.py --add-bank
     if [ $? -ne 0 ]; then
-        warn "Failed — credentials might be wrong. Retry with correct ones:"
-        echo -e "  ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
+        warn "Failed — likely a credentials mismatch (multiple Plaid teams?)."
+        echo -e "  Paste correct keys from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
+        echo ""
         read -p "  Client ID: " PLAID_CLIENT_ID
         read -p "  Secret (Production): " PLAID_SECRET
         export PLAID_CLIENT_ID PLAID_SECRET
+        uv run plaid_sync.py --add-bank || warn "Still failing — check your credentials"
     fi
     echo ""
     read -p "  Connect another bank? (Enter = yes, 's' = done): " choice
