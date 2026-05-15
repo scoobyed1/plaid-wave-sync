@@ -281,6 +281,7 @@ echo -e "  Open the Explorer panel (${BOLD}Cmd+Shift+E${NC} on Mac, ${BOLD}Ctrl+
 echo -e "  and drop your file into the ${BOLD}imports${NC} folder."
 echo ""
 read -p "  Path to CSV (e.g. imports/transactions.csv) or Enter to skip: " csv_path
+csv_path=$(echo "$csv_path" | tr -d "'" | tr -d '"')
 
 if [ -n "$csv_path" ] && [ -f "$csv_path" ]; then
     ACCOUNTS_OUTPUT=$(uv run plaid_sync.py --dump-accounts 2>/dev/null | grep -A1000 "^\[")
