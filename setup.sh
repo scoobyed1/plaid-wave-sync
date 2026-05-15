@@ -233,7 +233,7 @@ while [ "$choice" != "s" ]; do
         read -p "  Secret (Production): " PLAID_SECRET
         export PLAID_CLIENT_ID PLAID_SECRET
     fi
-    uv run plaid_sync.py --add-bank 2>&1 | tee /tmp/add-bank-output.txt
+    uv run plaid_sync.py --add-bank | tee /tmp/add-bank-output.txt
     ADD_BANK_EXIT=${PIPESTATUS[0]}
     if [ "$ADD_BANK_EXIT" -ne 0 ]; then
         warn "Failed — likely a credentials mismatch (multiple Plaid teams?)."
@@ -242,7 +242,7 @@ while [ "$choice" != "s" ]; do
         read -p "  Client ID: " PLAID_CLIENT_ID
         read -p "  Secret (Production): " PLAID_SECRET
         export PLAID_CLIENT_ID PLAID_SECRET
-        uv run plaid_sync.py --add-bank 2>&1 | tee /tmp/add-bank-output.txt || warn "Still failing — check your credentials"
+        uv run plaid_sync.py --add-bank | tee /tmp/add-bank-output.txt || warn "Still failing — check your credentials"
     fi
 
     # If bank was connected, capture the token and ask for Wave account details
