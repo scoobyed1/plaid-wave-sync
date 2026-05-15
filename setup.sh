@@ -104,12 +104,25 @@ else
     read -p "  Already have a Plaid Developer account? (y/n): " has_account
     if [ "$has_account" = "y" ]; then
         echo ""
-        info "Logging in..."
-        plaid login
+        echo -e "  ${BOLD}Option A:${NC} Paste credentials from dashboard"
+        echo -e "  ${BOLD}Option B:${NC} Use 'plaid login' (works in Codespaces)"
         echo ""
-        read -p "  Done logging in? Press Enter to continue..."
-        plaid keys fetch &>/dev/null &
-        spinner $! "Fetching API keys"
+        read -p "  Choose (a/b): " login_method
+        if [ "$login_method" = "b" ]; then
+            info "Starting plaid login... Look for the Codespaces port popup."
+            plaid login
+            read -p "  Done? Press Enter..."
+            plaid keys fetch &>/dev/null &
+            spinner $! "Fetching API keys"
+        else
+            echo ""
+            echo -e "  Grab your keys from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
+            echo ""
+            read -p "  Client ID: " plaid_client_id
+            read -p "  Secret (Production): " plaid_secret
+            plaid config set --client-id "$plaid_client_id" --secret "$plaid_secret" --env production 2>/dev/null
+            success "Credentials saved"
+        fi
     else
         echo -e "  ${BOLD}1.${NC} Create your Plaid account:"
         plaid register 2>/dev/null || true
