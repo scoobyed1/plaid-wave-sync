@@ -13,6 +13,9 @@ on:
         description: 'Dry run (true/false)'
         default: 'false'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -36,20 +39,3 @@ jobs:
             CMD="$CMD --dry-run"
           fi
           $CMD
-
-  reconcile:
-    runs-on: ubuntu-latest
-    if: github.event.schedule == '0 6 * * 1'  # Mondays only
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: astral-sh/setup-uv@v4
-
-      - name: Run reconciliation
-        env:
-          PLAID_CLIENT_ID: ${{ secrets.PLAID_CLIENT_ID }}
-          PLAID_SECRET: ${{ secrets.PLAID_SECRET }}
-          WAVE_ACCESS_TOKEN: ${{ secrets.WAVE_ACCESS_TOKEN }}
-          WAVE_BUSINESS_ID: ${{ secrets.WAVE_BUSINESS_ID }}
-          PLAID_ACCESS_TOKENS: ${{ secrets.PLAID_ACCESS_TOKENS }}
-        run: uv run plaid_sync.py --reconcile --days 7
