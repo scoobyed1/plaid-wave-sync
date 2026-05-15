@@ -324,28 +324,31 @@ fi
 if [ -n "$csv_path" ] && [ -f "$csv_path" ]; then
     ACCOUNTS_OUTPUT=$(uv run plaid_sync.py --dump-accounts 2>/dev/null | grep -A1000 "^\[")
 
-    # Write prompt to a file they can reference
-    cat > /tmp/copilot-prompt.txt <<EOF
-Read the file ${csv_path} and generate a keywords.json file in this workspace.
+    # Save prompt as a workspace file Copilot can read
+    cat > COPILOT_PROMPT.md <<EOF
+# Generate keywords.json
+
+Read the file \`${csv_path}\` and generate a \`keywords.json\` file in this workspace.
+
 Map transaction description keywords to these Wave account names:
 
+\`\`\`
 ${ACCOUNTS_OUTPUT}
+\`\`\`
 
-Rules:
+## Rules
 - Keywords are lowercase substrings matched against transaction descriptions
 - Values must EXACTLY match one of the account names above
 - Only use Expense or Income accounts (NOT Asset, Equity, or Liability)
 - Use null for internal transfers and CC payments
-- Output valid JSON with: {"keywords": {...}, "fallback_expense": "Uncategorized Expense", "fallback_income": "Other"}
+- Output valid JSON: \`{"keywords": {...}, "fallback_expense": "Uncategorized Expense", "fallback_income": "Other"}\`
 EOF
 
     echo ""
-    echo -e "  ${GREEN}✓${NC} Prompt saved to clipboard-ready file."
+    success "Created COPILOT_PROMPT.md"
     echo ""
     echo -e "  ${BOLD}→ Open Copilot Chat: Ctrl+Shift+I (or Cmd+Shift+I)${NC}"
-    echo -e "  ${BOLD}→ Paste contents of: /tmp/copilot-prompt.txt${NC}"
-    echo ""
-    echo -e "  Or copy it now:  ${DIM}cat /tmp/copilot-prompt.txt | pbcopy${NC}"
+    echo -e "  ${BOLD}→ Type: @workspace /generate keywords from #file:COPILOT_PROMPT.md${NC}"
     echo ""
     read -p "  Press Enter when Copilot has generated keywords.json..."
     success "Check keywords.json and edit if needed"
