@@ -16,7 +16,7 @@ Automatically sync bank transactions from [Plaid](https://plaid.com) → [Wave](
 
 [![Fork this repo](https://img.shields.io/badge/1-Fork_this_repo_→-181717?style=for-the-badge&logo=github)](../../fork)
 
-Click above to create your own copy. Your secrets and config stay private in your fork.
+Click above to create your own copy. **Important:** After forking, go to Settings → General → Change visibility → **Private**. This keeps your financial data (transaction logs) hidden. The setup script will also attempt to do this automatically.
 
 ### Step 2 → Open in Codespaces
 

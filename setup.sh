@@ -62,11 +62,7 @@ echo ""
 
 # ─── Make repo private ────────────────────────────────────────────────────────
 
-REPO_OWNER=$(gh repo view --json owner -q '.owner.login' 2>/dev/null || true)
-REPO_NAME=$(gh repo view --json name -q '.name' 2>/dev/null || true)
-if [ -n "$REPO_OWNER" ] && [ "$REPO_NAME" = "plaid-wave-sync" ]; then
-    gh repo edit --visibility private 2>/dev/null && success "Repo set to private" || true
-fi
+# (repo privacy is set in Step 6 after gh auth)
 
 # ─── Step 1: Install dependencies ─────────────────────────────────────────────
 
@@ -422,6 +418,9 @@ if [ "$save_secrets" = "y" ]; then
         unset GITHUB_TOKEN
         gh auth login -w -p https --git-protocol https
     fi
+
+    # Make repo private to protect financial data in Action logs
+    gh repo edit --visibility private 2>/dev/null && success "Repo set to private" || true
 
     gh secret set PLAID_CLIENT_ID --body "$CLIENT_ID" &>/dev/null && success "Saved PLAID_CLIENT_ID"
     if [ -n "$SECRET" ]; then
