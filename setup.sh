@@ -59,8 +59,36 @@ echo "  Your Wave accounts:"
 uv run plaid_sync.py --dump-accounts
 echo ""
 
-# Step 5: Set GitHub secrets automatically
-echo "▶ Step 5: Save secrets to your GitHub repo"
+# Step 5: Build keywords with Copilot
+echo "▶ Step 5: Build keyword mappings"
+echo ""
+echo "  Drop your bank CSV (or Wave transaction export) into this workspace."
+echo ""
+read -p "  Path to your CSV (or Enter to skip): " csv_path
+if [ -n "$csv_path" ] && [ -f "$csv_path" ]; then
+    ACCOUNTS_OUTPUT=$(uv run plaid_sync.py --dump-accounts 2>/dev/null | grep -A1000 "^\[")
+    echo "  Generating keywords.json with Copilot..."
+    gh copilot -p "Read the file $csv_path. These are my Wave account names:
+
+$ACCOUNTS_OUTPUT
+
+Generate a keywords.json file that maps transaction description keywords to Wave account names. Rules:
+- Keywords are lowercase substrings matched against transaction descriptions
+- Values must exactly match a Wave account name from above
+- Use null for internal transfers to skip
+- Output valid JSON with keys: keywords, fallback_expense, fallback_income
+- Be conservative, only map confident matches
+
+Write the result to keywords.json" --no-confirm
+    echo ""
+    echo "  ✓ Check keywords.json and edit if needed"
+else
+    echo "  Skipped. See KEYWORDS_GUIDE.md to build keywords later."
+fi
+echo ""
+
+# Step 6: Set GitHub secrets automatically
+echo "▶ Step 6: Save secrets to your GitHub repo"
 echo ""
 read -p "  Auto-save secrets to this repo? (y/n): " save_secrets
 if [ "$save_secrets" = "y" ]; then
