@@ -98,8 +98,10 @@ fi
 
 step "Step 2/6 · Plaid account"
 
-if plaid config 2>/dev/null | grep -q "client_id"; then
-    success "Already logged in to Plaid"
+if plaid config 2>/dev/null | grep -q "Client ID"; then
+    export PLAID_CLIENT_ID=$(plaid config 2>/dev/null | grep "Client ID" | awk '{print $NF}')
+    export PLAID_SECRET=$(grep -o '"secret": *"[^"]*"' ~/.config/plaid-cli/config.json 2>/dev/null | tail -1 | cut -d'"' -f4)
+    success "Already logged in (Client ID: $PLAID_CLIENT_ID)"
 else
     read -p "  Already have a Plaid Developer account? (y/n): " has_account
     if [ "$has_account" != "y" ]; then
