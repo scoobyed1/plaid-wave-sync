@@ -232,17 +232,21 @@ echo ""
 read -p "  Press Enter to connect a bank (or 's' to skip): " choice
 while [ "$choice" != "s" ]; do
     export PATH="$HOME/.local/bin:$PATH"
-    # Ensure credentials are exported
-    if [ -z "$PLAID_CLIENT_ID" ]; then
-        export PLAID_CLIENT_ID=$(plaid config 2>/dev/null | grep "Client ID" | awk '{print $NF}')
-    fi
-    if [ -z "$PLAID_SECRET" ]; then
-        echo -e "  Need your Plaid secret for bank connection."
-        echo -e "  Get it from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
+    # Ensure credentials are set
+    if [ -z "$PLAID_CLIENT_ID" ] || [ -z "$PLAID_SECRET" ]; then
+        echo -e "  Enter your Plaid credentials from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
+        read -p "  Client ID: " PLAID_CLIENT_ID
         read -p "  Secret (Production): " PLAID_SECRET
-        export PLAID_SECRET
+        export PLAID_CLIENT_ID PLAID_SECRET
     fi
     uv run plaid_sync.py --add-bank
+    if [ $? -ne 0 ]; then
+        warn "Failed — credentials might be wrong. Retry with correct ones:"
+        echo -e "  ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
+        read -p "  Client ID: " PLAID_CLIENT_ID
+        read -p "  Secret (Production): " PLAID_SECRET
+        export PLAID_CLIENT_ID PLAID_SECRET
+    fi
     echo ""
     read -p "  Connect another bank? (Enter = yes, 's' = done): " choice
 done
