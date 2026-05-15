@@ -193,9 +193,9 @@ echo ""
 read -p "  Press Enter to connect a bank (or 's' to skip): " choice
 while [ "$choice" != "s" ]; do
     export PATH="$HOME/.local/bin:$PATH"
-    uv run plaid_sync.py --add-bank 2>&1 | grep -v "^20\|HTTP Request\|Installed"
+    uv run plaid_sync.py --add-bank
     echo ""
-    read -p "  Press Enter to connect another, or 's' when done: " choice
+    read -p "  Connect another bank? (Enter = yes, 's' = done): " choice
 done
 
 echo ""
