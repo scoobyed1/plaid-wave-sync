@@ -388,28 +388,17 @@ if [ "$save_secrets" = "y" ]; then
     CLIENT_ID="${PLAID_CLIENT_ID:-$(plaid config 2>/dev/null | grep 'Client ID' | awk '{print $NF}')}"
     SECRET="${PLAID_SECRET:-$(grep -o '"secret": *"[^"]*"' ~/.config/plaid-cli/config.json 2>/dev/null | tail -1 | cut -d'"' -f4)}"
 
-    # Test if we have permission
-    if gh secret set PLAID_CLIENT_ID --body "$CLIENT_ID" 2>/dev/null; then
-        success "Saved PLAID_CLIENT_ID"
-        gh secret set PLAID_SECRET --body "$SECRET" &>/dev/null && success "Saved PLAID_SECRET"
-        gh secret set WAVE_ACCESS_TOKEN --body "$WAVE_ACCESS_TOKEN" &>/dev/null && success "Saved WAVE_ACCESS_TOKEN"
-        [ -n "$WAVE_BUSINESS_ID" ] && gh secret set WAVE_BUSINESS_ID --body "$WAVE_BUSINESS_ID" &>/dev/null && success "Saved WAVE_BUSINESS_ID"
-    else
-        warn "Can't save secrets from Codespaces (permission denied)."
-        echo ""
-        echo -e "  Add them manually here (Cmd+Click):"
-        REPO_URL=$(gh repo view --json url -q '.url' 2>/dev/null || echo "https://github.com/YOUR_USER/plaid-wave-sync")
-        echo -e "  ${CYAN}${REPO_URL}/settings/secrets/actions${NC}"
-        echo ""
-        echo -e "  ${BOLD}Secrets to add:${NC}"
-        echo -e "    PLAID_CLIENT_ID      = ${DIM}${CLIENT_ID}${NC}"
-        echo -e "    PLAID_SECRET         = ${DIM}(from dashboard)${NC}"
-        echo -e "    WAVE_ACCESS_TOKEN    = ${DIM}(your Wave token)${NC}"
-        [ -n "$WAVE_BUSINESS_ID" ] && echo -e "    WAVE_BUSINESS_ID     = ${DIM}${WAVE_BUSINESS_ID}${NC}"
-        echo -e "    PLAID_ACCESS_TOKENS  = ${DIM}Name:token:WaveAccount:type${NC}"
-        echo ""
-        read -p "  Press Enter when done..."
+    # Test if we have permission, if not re-auth gh
+    if ! gh secret set PLAID_CLIENT_ID --body "$CLIENT_ID" 2>/dev/null; then
+        info "Need GitHub auth to save secrets (one-time)."
+        unset GITHUB_TOKEN
+        gh auth login -w
     fi
+
+    gh secret set PLAID_CLIENT_ID --body "$CLIENT_ID" &>/dev/null && success "Saved PLAID_CLIENT_ID"
+    gh secret set PLAID_SECRET --body "$SECRET" &>/dev/null && success "Saved PLAID_SECRET"
+    gh secret set WAVE_ACCESS_TOKEN --body "$WAVE_ACCESS_TOKEN" &>/dev/null && success "Saved WAVE_ACCESS_TOKEN"
+    [ -n "$WAVE_BUSINESS_ID" ] && gh secret set WAVE_BUSINESS_ID --body "$WAVE_BUSINESS_ID" &>/dev/null && success "Saved WAVE_BUSINESS_ID"
 
     echo ""
     info "Last one — your Plaid access tokens."
