@@ -324,41 +324,46 @@ fi
 if [ -n "$csv_path" ] && [ -f "$csv_path" ]; then
     ACCOUNTS_OUTPUT=$(uv run plaid_sync.py --dump-accounts 2>/dev/null | grep -A1000 "^\[")
 
-    # Update KEYWORDS_GUIDE.md with their actual accounts and CSV path
     cat > KEYWORDS_GUIDE.md <<EOF
-# Build Your Keywords
+# Generate keywords.json
 
-Open Copilot Chat (**Ctrl+Shift+I** or **Cmd+Shift+I**) and send:
+Read \`${csv_path}\` and generate a \`keywords.json\` file in this workspace root.
 
-> @workspace Read \`${csv_path}\` and generate a \`keywords.json\` file. Map transaction keywords to the Wave accounts listed below. Keywords are lowercase substrings. Values must exactly match an account name. Only use Expense or Income accounts. Use null for transfers and CC payments. Output: \`{"keywords": {...}, "fallback_expense": "Uncategorized Expense", "fallback_income": "Other"}\`
-
-## Your Wave Accounts
+## Wave Account Names (use these as values)
 
 \`\`\`
 ${ACCOUNTS_OUTPUT}
 \`\`\`
 
-## Rules for Copilot
-- Keywords are lowercase substrings matched against transaction descriptions
-- Values must EXACTLY match one of the account names above
-- Only use Expense or Income accounts (NOT Asset, Equity, or Liability)
-- Use null for internal transfers and CC payments
-- Refunds are handled automatically by the script (negative amounts)
-- The same keyword works for both expenses and income
+## Output Format
 
-## Validate
-
-\`\`\`bash
-uv run plaid_sync.py --dump-accounts
-uv run plaid_sync.py --dry-run --days 90
+\`\`\`json
+{
+  "keywords": {
+    "vendor name lowercase": "Exact Wave Account Name",
+    "internal transfer": null
+  },
+  "fallback_expense": "Uncategorized Expense",
+  "fallback_income": "Other"
+}
 \`\`\`
+
+## Rules
+- Keywords are lowercase substrings matched against bank transaction descriptions
+- Values must EXACTLY match one of the Wave account names above
+- Only use Expense or Income accounts (NOT Asset, Equity, or Liability)
+- Use null for internal transfers and CC payments (e.g. "autopay", "transfer")
+- Refunds are handled automatically (negative amounts)
+- Be conservative — only map keywords you're confident about
+- Shorter keywords are better when a vendor always maps to the same category
 EOF
 
     echo ""
-    success "Updated KEYWORDS_GUIDE.md with your accounts"
+    success "Updated KEYWORDS_GUIDE.md"
     echo ""
-    echo -e "  ${BOLD}→ Open Copilot Chat: Ctrl+Shift+I (or Cmd+Shift+I)${NC}"
-    echo -e "  ${BOLD}→ Open KEYWORDS_GUIDE.md and copy the prompt at the top${NC}"
+    echo -e "  ${BOLD}→ Open Copilot Chat (Cmd+Shift+I) and type:${NC}"
+    echo ""
+    echo -e "    ${CYAN}Follow #file:KEYWORDS_GUIDE.md${NC}"
     echo ""
     read -p "  Press Enter when Copilot has generated keywords.json..."
     success "Check keywords.json and edit if needed"
