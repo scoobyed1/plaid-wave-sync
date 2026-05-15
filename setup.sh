@@ -102,63 +102,35 @@ if plaid config 2>/dev/null | grep -q "client_id"; then
     success "Already logged in to Plaid"
 else
     read -p "  Already have a Plaid Developer account? (y/n): " has_account
-    if [ "$has_account" = "y" ]; then
+    if [ "$has_account" != "y" ]; then
         echo ""
-        echo -e "  ${BOLD}Here's what will happen:${NC}"
-        echo -e "  1. A login link will appear below — click it"
-        echo -e "  2. Log in to Plaid in your browser"
-        echo -e "  3. Your browser will try to go to a localhost URL and ${BOLD}fail${NC} — ${GREEN}that's expected!${NC}"
-        echo -e "  4. Copy the URL from your browser's address bar"
-        echo -e "  5. Paste it back here"
-        echo ""
-        read -p "  Ready? Press Enter to start..."
-        echo ""
-
-        # Run plaid login in background (it starts a server on port 41001)
-        plaid login &>/tmp/plaid-login.log &
-        PLAID_PID=$!
-        sleep 2
-
-        # Show the auth URL
-        AUTH_URL=$(grep -o 'https://dashboard.plaid.com[^ ]*' /tmp/plaid-login.log | head -1)
-        if [ -n "$AUTH_URL" ]; then
-            echo -e "  ${CYAN}$AUTH_URL${NC}"
-        else
-            cat /tmp/plaid-login.log
-        fi
-        echo ""
-        read -p "  Paste the localhost URL your browser failed on: " callback_url
-
-        if [ -n "$callback_url" ]; then
-            # Hit the local plaid login server with the callback
-            curl -s "$callback_url" &>/dev/null
-            sleep 2
-        fi
-        wait $PLAID_PID 2>/dev/null
-
-        plaid keys fetch &>/dev/null &
-        spinner $! "Fetching API keys"
-    else
-        echo -e "  ${BOLD}1.${NC} Create your Plaid account:"
         plaid register 2>/dev/null || true
+        read -p "  Done signing up? Press Enter..."
         echo ""
-        read -p "  Done signing up? Press Enter to continue..."
-        echo ""
-
-        echo -e "  ${BOLD}2.${NC} Activate trial plan (10 free bank connections):"
         plaid trial 2>/dev/null || true
+        read -p "  Done with trial? Press Enter..."
         echo ""
-        read -p "  Done with trial signup? Press Enter to continue..."
-        echo ""
-
-        echo -e "  ${BOLD}3.${NC} Grab your API keys from:"
-        echo -e "     ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
-        echo ""
-        read -p "  Client ID: " plaid_client_id
-        read -p "  Secret (Production): " plaid_secret
-        plaid config set --client-id "$plaid_client_id" --secret "$plaid_secret" --env production 2>/dev/null
-        success "Credentials saved"
     fi
+
+    echo ""
+    echo -e "  ${BOLD}Log in to Plaid:${NC}"
+    echo -e "  1. A link will appear — click it and log in"
+    echo -e "  2. Browser will fail on a localhost URL — ${GREEN}that's expected${NC}"
+    echo -e "  3. Copy that URL and paste it here"
+    echo ""
+    read -p "  Press Enter to start..."
+
+    plaid login &>/tmp/plaid-login.log &
+    PLAID_PID=$!
+    sleep 2
+    grep -o 'https://[^ ]*' /tmp/plaid-login.log | head -1 | xargs -I{} echo -e "\n  ${CYAN}{}${NC}\n"
+
+    read -p "  Paste the failed localhost URL: " callback_url
+    [ -n "$callback_url" ] && curl -s "$callback_url" &>/dev/null
+    wait $PLAID_PID 2>/dev/null
+
+    plaid keys fetch &>/dev/null &
+    spinner $! "Fetching API keys"
 fi
 
 # ─── Step 3: Connect banks ────────────────────────────────────────────────────
