@@ -322,44 +322,8 @@ if [ -z "$csv_path" ]; then
 fi
 
 if [ -n "$csv_path" ] && [ -f "$csv_path" ]; then
-    ACCOUNTS_OUTPUT=$(uv run plaid_sync.py --dump-accounts 2>/dev/null | grep -A1000 "^\[")
-
-    cat > KEYWORDS_GUIDE.md <<EOF
-# Generate keywords.json
-
-Read \`${csv_path}\` and generate a \`keywords.json\` file in this workspace root.
-
-## Wave Account Names (use these as values)
-
-\`\`\`
-${ACCOUNTS_OUTPUT}
-\`\`\`
-
-## Output Format
-
-\`\`\`json
-{
-  "keywords": {
-    "vendor name lowercase": "Exact Wave Account Name",
-    "internal transfer": null
-  },
-  "fallback_expense": "Uncategorized Expense",
-  "fallback_income": "Other"
-}
-\`\`\`
-
-## Rules
-- Keywords are lowercase substrings matched against bank transaction descriptions
-- Values must EXACTLY match one of the Wave account names above
-- Only use Expense or Income accounts (NOT Asset, Equity, or Liability)
-- Use null for internal transfers and CC payments (e.g. "autopay", "transfer")
-- Refunds are handled automatically (negative amounts)
-- Be conservative — only map keywords you're confident about
-- Shorter keywords are better when a vendor always maps to the same category
-EOF
-
     echo ""
-    success "Updated KEYWORDS_GUIDE.md"
+    success "CSV found: $csv_path"
     echo ""
     echo -e "  ${BOLD}→ Open Copilot Chat (Cmd+Shift+I) and type:${NC}"
     echo ""
@@ -368,7 +332,7 @@ EOF
     read -p "  Press Enter when Copilot has generated keywords.json..."
     success "Check keywords.json and edit if needed"
 else
-    warn "No CSV found. See KEYWORDS_GUIDE.md to build keywords later."
+    warn "No CSV found. Drop one in the workspace and re-run, or see KEYWORDS_GUIDE.md."
 fi
 
 # ─── Step 6: Save secrets ─────────────────────────────────────────────────────

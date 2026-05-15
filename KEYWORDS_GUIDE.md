@@ -1,92 +1,68 @@
-# Building Your Keyword Mappings
+# Generate keywords.json
 
-Use any LLM (ChatGPT, Claude, Gemini, etc.) to help build your `keywords.json` from your transaction history.
+**DO NOT run any terminal commands. DO NOT parse the CSV programmatically. Just read it and write the JSON file.**
 
-## Step 1: Get your Wave account names
+## Task
 
-```bash
-uv run plaid_sync.py --dump-accounts
-```
+1. Read the CSV file in this workspace (the `.csv` file with "Account Transactions" in the name)
+2. Look at the "Description" column to find recurring vendor/transaction names
+3. Write a `keywords.json` file mapping those vendors to the Wave accounts below
 
-Copy the list of account names from the output.
+## Output
 
-## Step 2: Prompt your LLM
+Write `keywords.json` to the workspace root with this exact structure:
 
-Upload your bank CSV (or Wave's Account Transactions export) along with this prompt:
-
----
-
-```
-I have a script that categorizes bank transactions into accounting categories using keyword matching. I need you to build a keyword mapping for me.
-
-Here are my Wave accounting expense/income account names:
-[PASTE YOUR --dump-accounts OUTPUT HERE]
-
-I'm attaching a CSV of my bank transactions / general ledger. Analyze the transaction descriptions and build keyword mappings.
-
-Rules:
-- Keywords are lowercase substrings that match against transaction descriptions
-- Values must EXACTLY match one of my Wave account names listed above
-- Use null for transactions that should be skipped (internal transfers, etc.)
-- Be conservative — only map keywords you're confident about
-- Use shorter keywords when a vendor always goes to the same category (e.g., "adobe" not "adobe creative cloud")
-- Avoid overly generic keywords that could false-match (e.g., don't use "pay" — it matches too many things)
-- Group similar vendors under the same keyword when possible
-- IMPORTANT: Only map to Expense or Income accounts, NOT to Asset or Liability accounts (like checking or credit card accounts). Wave's API only allows transactions between a balance sheet account and an income/expense account.
-- CC payments (e.g., "AUTOPAY", "AUTOMATIC PAYMENT") should be set to null (skip) — they're handled separately
-- Refunds show as negative amounts on credit cards — the script automatically treats them as income/credits against the same category. No special handling needed.
-- The same keyword (e.g., "spotify") works for both expenses and income — the script determines direction from the transaction amount sign, not the keyword
-
-Output format — valid JSON:
+```json
 {
   "keywords": {
-    "keyword": "Wave Account Name",
-    "another": "Wave Account Name",
-    "skip this": null
+    "vendor keyword": "Wave Account Name",
+    "another vendor": "Wave Account Name",
+    "transfer keyword": null
   },
   "fallback_expense": "Uncategorized Expense",
   "fallback_income": "Other"
 }
-
-Generate the keywords.json for my transactions.
 ```
 
----
+## Wave Account Names (use ONLY these as values)
 
-> **Tip:** Most LLMs (ChatGPT, Claude, Gemini) accept CSV file uploads directly. Upload the file rather than pasting — it handles thousands of rows better and catches patterns you'd miss manually.
+Only use accounts from the Expenses and Income sections:
 
----
+### Expenses
+- Accounting Fees
+- Advertising & Promotion
+- Computer – Hardware
+- Computer – Hosting
+- Computer – Internet
+- Computer – Software
+- Dues & Subscriptions
+- Insurance
+- Meals and Entertainment
+- Office Supplies
+- Payroll Employer Taxes
+- Payroll Gross Pay
+- Payroll – Salary & Wages
+- Postage & Delivery
+- Professional Fees
+- Rent Expense
+- Subcontracted Services
+- Telephone – Wireless
+- Travel Expense
+- Uncategorized Expense
+- Vehicle – Fuel
+- Video Gear
 
-## Step 4: Validate
+### Income
+- Freelance Income
+- Interest
+- Other
+- Uncategorized Income
 
-Save the output as `keywords.json` and run:
+## Rules
 
-```bash
-uv run plaid_sync.py --dump-accounts
-```
-
-The validation section at the bottom will show ✓ or ✗ for each keyword target.
-
-## Step 5: Iterate
-
-Run a dry-run to see how transactions get categorized:
-
-```bash
-uv run plaid_sync.py --dry-run --days 90
-```
-
-Anything that shows as `UNMATCHED` needs a keyword added. Anything miscategorized needs its keyword fixed. Feed the results back to your LLM:
-
-```
-These transactions were uncategorized. Add keywords for them:
-[PASTE UNMATCHED LINES]
-
-These were miscategorized. Fix them:
-[PASTE WRONG ONES WITH WHAT THEY SHOULD BE]
-```
-
-## Tips
-
-- **Start broad, refine later.** Get 80% coverage first, then add specific vendors as you see them.
-- **Check for conflicts.** "uber" matches both "Uber" (rideshare) and "Uber Eats" (food). Put "uber eats" BEFORE "uber" in your keywords since the script matches first-found.
-- **Review monthly.** New vendors appear. Spend 5 minutes adding keywords when you see patterns in your Uncategorized bucket.
+- Keywords are **lowercase** substrings (e.g., "adobe" matches "ADOBE *800-833-6687")
+- Values must **exactly** match an account name from the list above
+- Use `null` for transfers, CC payments, and internal movements (e.g., "transfer", "autopay", "payment - thank")
+- Be conservative — only map vendors you see multiple times or are obvious
+- Use short keywords (e.g., "adobe" not "adobe creative cloud")
+- Do NOT use generic words that match too broadly (e.g., don't use "pay")
