@@ -195,7 +195,7 @@ def create_wave_transaction(*, description, amount, date, anchor_id, line_id, ex
         line_bal = "INCREASE"
     else:
         anchor_dir = "DEPOSIT" if is_expense else "WITHDRAWAL"
-        line_bal = "INCREASE" if is_expense else "DECREASE"
+        line_bal = "DECREASE" if is_expense else "INCREASE"
 
     result = wave_gql("""mutation($input: MoneyTransactionCreateInput!) {
         moneyTransactionCreate(input: $input) {
@@ -448,8 +448,10 @@ def main():
                 continue
 
             name_lower = name.lower()
-            if acct_type == "checking" and any(k in name_lower for k in ("credit crd", "autopaybus", "cc payment", "credit card payment")):
-                log.debug(f"  SKIP cc-payment: {name}")
+            # CC payment on the CC side — skip to avoid double-counting
+            # The checking side records it as Uncategorized Expense for manual recategorization
+            if acct_type == "credit_card" and any(k in name_lower for k in ("automatic payment", "payment - thank", "online payment")):
+                log.debug(f"  SKIP cc-payment (CC side): {name}")
                 skipped += 1
                 continue
 
