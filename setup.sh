@@ -104,25 +104,40 @@ else
     read -p "  Already have a Plaid Developer account? (y/n): " has_account
     if [ "$has_account" = "y" ]; then
         echo ""
-        echo -e "  ${BOLD}Option A:${NC} Paste credentials from dashboard"
-        echo -e "  ${BOLD}Option B:${NC} Use 'plaid login' (works in Codespaces)"
+        echo -e "  ${BOLD}Here's what will happen:${NC}"
+        echo -e "  1. A login link will appear below — click it"
+        echo -e "  2. Log in to Plaid in your browser"
+        echo -e "  3. Your browser will try to go to a localhost URL and ${BOLD}fail${NC} — ${GREEN}that's expected!${NC}"
+        echo -e "  4. Copy the URL from your browser's address bar"
+        echo -e "  5. Paste it back here"
         echo ""
-        read -p "  Choose (a/b): " login_method
-        if [ "$login_method" = "b" ]; then
-            info "Starting plaid login... Look for the Codespaces port popup."
-            plaid login
-            read -p "  Done? Press Enter..."
-            plaid keys fetch &>/dev/null &
-            spinner $! "Fetching API keys"
+        read -p "  Ready? Press Enter to start..."
+        echo ""
+
+        # Run plaid login in background (it starts a server on port 41001)
+        plaid login &>/tmp/plaid-login.log &
+        PLAID_PID=$!
+        sleep 2
+
+        # Show the auth URL
+        AUTH_URL=$(grep -o 'https://dashboard.plaid.com[^ ]*' /tmp/plaid-login.log | head -1)
+        if [ -n "$AUTH_URL" ]; then
+            echo -e "  ${CYAN}$AUTH_URL${NC}"
         else
-            echo ""
-            echo -e "  Grab your keys from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
-            echo ""
-            read -p "  Client ID: " plaid_client_id
-            read -p "  Secret (Production): " plaid_secret
-            plaid config set --client-id "$plaid_client_id" --secret "$plaid_secret" --env production 2>/dev/null
-            success "Credentials saved"
+            cat /tmp/plaid-login.log
         fi
+        echo ""
+        read -p "  Paste the localhost URL your browser failed on: " callback_url
+
+        if [ -n "$callback_url" ]; then
+            # Hit the local plaid login server with the callback
+            curl -s "$callback_url" &>/dev/null
+            sleep 2
+        fi
+        wait $PLAID_PID 2>/dev/null
+
+        plaid keys fetch &>/dev/null &
+        spinner $! "Fetching API keys"
     else
         echo -e "  ${BOLD}1.${NC} Create your Plaid account:"
         plaid register 2>/dev/null || true
@@ -130,20 +145,19 @@ else
         read -p "  Done signing up? Press Enter to continue..."
         echo ""
 
-        echo -e "  ${BOLD}2.${NC} Log in:"
-        plaid login 2>/dev/null || true
-        echo ""
-        read -p "  Done logging in? Press Enter to continue..."
-        echo ""
-
-        echo -e "  ${BOLD}3.${NC} Activate trial plan (10 free bank connections):"
+        echo -e "  ${BOLD}2.${NC} Activate trial plan (10 free bank connections):"
         plaid trial 2>/dev/null || true
         echo ""
         read -p "  Done with trial signup? Press Enter to continue..."
         echo ""
 
-        plaid keys fetch &>/dev/null &
-        spinner $! "Fetching API keys"
+        echo -e "  ${BOLD}3.${NC} Grab your API keys from:"
+        echo -e "     ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
+        echo ""
+        read -p "  Client ID: " plaid_client_id
+        read -p "  Secret (Production): " plaid_secret
+        plaid config set --client-id "$plaid_client_id" --secret "$plaid_secret" --env production 2>/dev/null
+        success "Credentials saved"
     fi
 fi
 
