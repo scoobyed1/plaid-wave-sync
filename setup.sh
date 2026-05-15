@@ -193,6 +193,8 @@ echo ""
 read -p "  Press Enter to connect a bank (or 's' to skip): " choice
 while [ "$choice" != "s" ]; do
     export PATH="$HOME/.local/bin:$PATH"
+    export PLAID_CLIENT_ID=$(plaid config 2>/dev/null | grep -i "client.id" | awk '{print $NF}')
+    export PLAID_SECRET=$(plaid config 2>/dev/null | grep -i "secret" | awk '{print $NF}')
     uv run plaid_sync.py --add-bank
     echo ""
     read -p "  Connect another bank? (Enter = yes, 's' = done): " choice
