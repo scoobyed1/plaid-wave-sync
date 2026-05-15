@@ -140,11 +140,9 @@ else
     if plaid keys fetch 2>/dev/null; then
         success "API keys saved"
     else
-        # Might need team selection first
-        plaid teams list 2>/dev/null
-        echo ""
-        read -p "  Enter team name (or press Enter for default): " team_name
-        [ -n "$team_name" ] && plaid teams use "$team_name" 2>/dev/null
+        # Auto-select first team and retry
+        FIRST_TEAM=$(plaid teams list 2>/dev/null | awk 'NR==2 {print $2}')
+        [ -n "$FIRST_TEAM" ] && plaid teams use "$FIRST_TEAM" 2>/dev/null
         if plaid keys fetch 2>/dev/null; then
             success "API keys saved"
         else
