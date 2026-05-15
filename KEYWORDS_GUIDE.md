@@ -32,6 +32,10 @@ Rules:
 - Use shorter keywords when a vendor always goes to the same category (e.g., "adobe" not "adobe creative cloud")
 - Avoid overly generic keywords that could false-match (e.g., don't use "pay" — it matches too many things)
 - Group similar vendors under the same keyword when possible
+- IMPORTANT: Only map to Expense or Income accounts, NOT to Asset or Liability accounts (like checking or credit card accounts). Wave's API only allows transactions between a balance sheet account and an income/expense account.
+- CC payments (e.g., "AUTOPAY", "AUTOMATIC PAYMENT") should be set to null (skip) — they're handled separately
+- Amazon refunds show as negative amounts on credit cards — they'll automatically be treated as income, which is fine
+- The same keyword (e.g., "spotify") works for both expenses and income — the script determines direction from the transaction amount sign, not the keyword
 
 Output format — valid JSON:
 {
