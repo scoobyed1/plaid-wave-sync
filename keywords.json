@@ -1,0 +1,67 @@
+{
+  "_comment": "Map transaction keywords (lowercase) to Wave account names. Set value to null to skip a transaction.",
+
+  "keywords": {
+    "verizon": "Telephone – Wireless",
+    "t-mobile": "Telephone – Wireless",
+    "at&t": "Telephone – Wireless",
+
+    "adobe": "Computer – Software",
+    "dropbox": "Computer – Software",
+    "google storage": "Computer – Software",
+    "microsoft": "Computer – Software",
+    "notion": "Computer – Software",
+    "slack": "Computer – Software",
+    "zoom": "Computer – Software",
+
+    "aws": "Computer – Hosting",
+    "cloudflare": "Computer – Hosting",
+    "digitalocean": "Computer – Hosting",
+    "heroku": "Computer – Hosting",
+
+    "amazon": "Office Supplies",
+    "staples": "Office Supplies",
+    "office depot": "Office Supplies",
+
+    "doordash": "Meals and Entertainment",
+    "uber eats": "Meals and Entertainment",
+    "grubhub": "Meals and Entertainment",
+    "restaurant": "Meals and Entertainment",
+    "cafe": "Meals and Entertainment",
+
+    "delta": "Travel Expense",
+    "united": "Travel Expense",
+    "jetblue": "Travel Expense",
+    "lyft": "Travel Expense",
+    "uber": "Travel Expense",
+    "hertz": "Travel Expense",
+    "marriott": "Travel Expense",
+    "hilton": "Travel Expense",
+    "airbnb": "Travel Expense",
+
+    "fedex": "Postage & Delivery",
+    "usps": "Postage & Delivery",
+    "ups": "Postage & Delivery",
+
+    "gusto": "Payroll – Salary & Wages",
+    "adp": "Payroll – Salary & Wages",
+    "wave payroll": "Payroll – Salary & Wages",
+
+    "state tax": "Payroll Employer Taxes",
+    "irs": "Payroll Employer Taxes",
+    "payroll tax": "Payroll Employer Taxes",
+
+    "insurance": "Insurance",
+    "next insur": "Insurance",
+
+    "interest earned": "Interest",
+    "wire transfer": "Other",
+    "deposit": "Other",
+
+    "transfer to savings": null,
+    "transfer from savings": null
+  },
+
+  "fallback_expense": "Uncategorized Expense",
+  "fallback_income": "Other"
+}
