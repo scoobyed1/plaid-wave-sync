@@ -119,9 +119,10 @@ else
     fi
 
     echo -e "  ${BOLD}Log in to Plaid:${NC}"
-    echo -e "  1. A link will appear — click it and log in"
-    echo -e "  2. Browser will fail on a localhost URL — ${GREEN}that's expected${NC}"
-    echo -e "  3. Copy that URL and paste it here"
+    echo -e "  1. ${BOLD}Cmd+Click${NC} (or Ctrl+Click) the link below"
+    echo -e "  2. Log in to Plaid in your browser"
+    echo -e "  3. Browser will fail on a localhost URL — ${GREEN}that's expected${NC}"
+    echo -e "  4. Copy that URL and paste it here"
     echo ""
     read -p "  Press Enter to start..."
 
