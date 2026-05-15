@@ -254,86 +254,10 @@ with open('$HOME/.config/plaid-cli/config.json','w') as f: json.dump(d,f,indent=
         uv run plaid_sync.py --add-bank || warn "Still failing — check your credentials"
     fi
 
-    # If bank was connected, auto-match to Wave accounts
+    # If bank was connected, save token for later matching (after Wave setup)
     if [ -f /tmp/plaid-new-token.txt ]; then
-        # Parse the connection result and match to Wave accounts
-        export PATH="$HOME/.local/bin:$PATH"
-        ENTRIES=$(uv run --with httpx python3 -c "
-import json, os, sys, httpx
-
-with open('/tmp/plaid-new-token.txt') as f:
-    data = json.load(f)
-
-token = data['access_token']
-accounts = data['accounts']
-
-# Get Wave accounts to match by mask
-wave_accounts = []
-biz_id = os.environ.get('WAVE_BUSINESS_ID', '')
-wave_token = os.environ.get('WAVE_ACCESS_TOKEN', '')
-if biz_id and wave_token:
-    page = 1
-    while True:
-        r = httpx.post('https://gql.waveapps.com/graphql/public',
-            headers={'Authorization': f'Bearer {wave_token}'},
-            json={'query': 'query(\$id:ID!,\$p:Int!){business(id:\$id){accounts(page:\$p,pageSize:50){pageInfo{totalPages}edges{node{name type{name} isArchived}}}}}',
-                  'variables': {'id': biz_id, 'page': page}}, timeout=30)
-        d = r.json()['data']['business']['accounts']
-        for e in d['edges']:
-            n = e['node']
-            if not n['isArchived']:
-                wave_accounts.append({'name': n['name'], 'type': n['type']['name']})
-        if page >= d['pageInfo']['totalPages']:
-            break
-        page += 1
-
-entries = []
-for acct in accounts:
-    mask = acct['mask']
-    acct_type = acct['type']
-    # Try to match by mask number in Wave account name
-    matched = next((w['name'] for w in wave_accounts if mask in w['name']), None)
-    if matched:
-        entries.append(f\"{acct['name']}:{token}:{matched}:{acct_type}\")
-        print(f\"  ✓ {acct['name']} (mask={mask}) → {matched} ({acct_type})\", file=sys.stderr)
-    else:
-        print(f\"  ⚠ {acct['name']} (mask={mask}) — no Wave match found\", file=sys.stderr)
-        # Ask user
-        print(f\"NEED_INPUT:{acct['name']}:{token}:{acct_type}:{mask}\")
-
-print(','.join(entries) if entries else '', end='')
-" 2>&1)
-
-        # Parse output - stderr lines are status, stdout is the entries
-        echo "$ENTRIES" | grep -v "^  " | grep -v "^NEED_INPUT" > /tmp/plaid-entries.txt
-        MANUAL=$(echo "$ENTRIES" | grep "^NEED_INPUT" || true)
-        echo "$ENTRIES" | grep "^  " || true
-
-        # Handle any unmatched accounts
-        if [ -n "$MANUAL" ]; then
-            echo "$MANUAL" | while IFS=: read -r _ name tok typ mask; do
-                echo ""
-                echo -e "  Could not auto-match: ${BOLD}$name${NC} (mask=$mask)"
-                read -p "  Wave account name: " wave_name
-                EXTRA="$name:$tok:$wave_name:$typ"
-                if [ -s /tmp/plaid-entries.txt ]; then
-                    echo -n ",$EXTRA" >> /tmp/plaid-entries.txt
-                else
-                    echo -n "$EXTRA" > /tmp/plaid-entries.txt
-                fi
-            done
-        fi
-
-        NEW_ENTRIES=$(cat /tmp/plaid-entries.txt 2>/dev/null)
-        if [ -n "$NEW_ENTRIES" ]; then
-            if [ -z "$PLAID_ACCESS_TOKENS" ]; then
-                PLAID_ACCESS_TOKENS="$NEW_ENTRIES"
-            else
-                PLAID_ACCESS_TOKENS="${PLAID_ACCESS_TOKENS},${NEW_ENTRIES}"
-            fi
-            export PLAID_ACCESS_TOKENS
-        fi
-        rm -f /tmp/plaid-new-token.txt /tmp/plaid-entries.txt
+        cat /tmp/plaid-new-token.txt >> /tmp/plaid-tokens-all.jsonl
+        rm -f /tmp/plaid-new-token.txt
     fi
 
     echo ""
@@ -392,6 +316,59 @@ fi
 echo ""
 uv run plaid_sync.py --dump-accounts 2>/dev/null | head -30
 echo ""
+
+# ─── Match Plaid accounts to Wave accounts ────────────────────────────────────
+
+if [ -f /tmp/plaid-tokens-all.jsonl ]; then
+    info "Matching your bank accounts to Wave..."
+    PLAID_ACCESS_TOKENS=$(WAVE_ACCESS_TOKEN="$WAVE_ACCESS_TOKEN" WAVE_BUSINESS_ID="$WAVE_BUSINESS_ID" uv run --with httpx python3 -c "
+import json, os, sys, httpx
+
+# Load all connected bank tokens
+tokens = []
+with open('/tmp/plaid-tokens-all.jsonl') as f:
+    for line in f:
+        if line.strip():
+            tokens.append(json.loads(line))
+
+# Get Wave accounts
+wave_accounts = []
+biz_id = os.environ.get('WAVE_BUSINESS_ID', '')
+wave_token = os.environ.get('WAVE_ACCESS_TOKEN', '')
+page = 1
+while True:
+    r = httpx.post('https://gql.waveapps.com/graphql/public',
+        headers={'Authorization': f'Bearer {wave_token}'},
+        json={'query': '''query(\$id:ID!,\$p:Int!){business(id:\$id){accounts(page:\$p,pageSize:50){pageInfo{totalPages}edges{node{name type{name} isArchived}}}}}''',
+              'variables': {'id': biz_id, 'page': page}}, timeout=30)
+    d = r.json()['data']['business']['accounts']
+    for e in d['edges']:
+        n = e['node']
+        if not n['isArchived']:
+            wave_accounts.append(n['name'])
+    if page >= d['pageInfo']['totalPages']:
+        break
+    page += 1
+
+entries = []
+for t in tokens:
+    for acct in t['accounts']:
+        mask = acct['mask']
+        acct_type = acct['type']
+        # Match by mask in Wave account name
+        matched = next((w for w in wave_accounts if mask in w), None)
+        if matched:
+            entries.append(f\"{acct['name']}:{t['access_token']}:{matched}:{acct_type}\")
+            print(f'  ✓ {acct[\"name\"]} (mask={mask}) → {matched} ({acct_type})', file=sys.stderr)
+        else:
+            print(f'  ⚠ {acct[\"name\"]} (mask={mask}) — no match, skipping', file=sys.stderr)
+
+print(','.join(entries), end='')
+" 2>&1 | tee /tmp/match-output.txt | grep "^  " || true)
+
+    export PLAID_ACCESS_TOKENS=$(grep -v "^  " /tmp/match-output.txt)
+    rm -f /tmp/plaid-tokens-all.jsonl /tmp/match-output.txt
+fi
 
 # ─── Step 5: Keywords ─────────────────────────────────────────────────────────
 
