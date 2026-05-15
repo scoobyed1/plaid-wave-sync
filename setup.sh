@@ -372,9 +372,10 @@ with open(sys.argv[1]) as f:
             parts = desc.split(' - ')
             if len(parts) == 2 and parts[1].strip().replace('A','').replace('B','').isdigit():
                 continue
-            # Skip if it matches a known client name
+            # Skip if it matches a known client name AND it's income (credit column has value)
             desc_lower = desc.lower()
-            if any(c in desc_lower for c in clients if len(c) > 3):
+            is_income = len(row) > 4 and row[4].strip() and not row[3].strip()
+            if is_income and any(c in desc_lower for c in clients if len(c) > 3):
                 continue
             seen.add(desc)
             print(desc)
