@@ -463,19 +463,32 @@ fi
 # ─── Done ─────────────────────────────────────────────────────────────────────
 
 # Enable the Actions workflow
-gh workflow enable sync.yml 2>/dev/null && success "GitHub Actions workflow enabled" || true
+if ! gh workflow enable sync.yml 2>/dev/null; then
+    REPO_URL=$(gh repo view --json url -q '.url' 2>/dev/null)
+    echo ""
+    warn "GitHub requires you to manually enable Actions on a new fork."
+    echo -e "  1. Open: ${CYAN}${REPO_URL}/actions${NC}"
+    echo -e "  2. Click: ${BOLD}I understand my workflows, go ahead and enable them${NC}"
+    echo ""
+    read -p "  Press Enter once you've clicked the button..."
+    gh workflow enable sync.yml &>/dev/null
+fi
+success "GitHub Actions workflow enabled"
 
 # Trigger a test run
-gh workflow run sync.yml -f days=3 -f dry_run=true 2>/dev/null && success "Test run triggered (dry-run)" || true
+if gh workflow run sync.yml -f days=3 -f dry_run=true 2>/dev/null; then
+    success "Test run triggered (dry-run)"
 
-# Wait for it to complete and show result
-info "Waiting for test run to complete..."
-sleep 10
-RUN_ID=$(gh run list --workflow=sync.yml -L 1 --json databaseId -q '.[0].databaseId' 2>/dev/null)
-if [ -n "$RUN_ID" ]; then
-    gh run watch "$RUN_ID" --exit-status 2>/dev/null && success "Test run passed! ✓" || warn "Test run failed — check Actions tab for details"
-    REPO_URL=$(gh repo view --json url -q '.url' 2>/dev/null)
-    echo -e "  ${CYAN}${REPO_URL}/actions/runs/${RUN_ID}${NC}"
+    info "Waiting for test run to complete..."
+    sleep 10
+    RUN_ID=$(gh run list --workflow=sync.yml -L 1 --json databaseId -q '.[0].databaseId' 2>/dev/null)
+    if [ -n "$RUN_ID" ]; then
+        gh run watch "$RUN_ID" --exit-status 2>/dev/null && success "Test run passed! ✓" || warn "Test run failed — check Actions tab for details"
+        REPO_URL=$(gh repo view --json url -q '.url' 2>/dev/null)
+        echo -e "  ${CYAN}${REPO_URL}/actions/runs/${RUN_ID}${NC}"
+    fi
+else
+    warn "Could not trigger test run. Trigger manually from the Actions tab."
 fi
 
 echo ""

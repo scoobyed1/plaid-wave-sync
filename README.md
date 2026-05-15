@@ -12,15 +12,9 @@ Automatically sync bank transactions from [Plaid](https://plaid.com) → [Wave](
 
 ## Setup (5 minutes)
 
-### Step 1 → Fork this repo
-
-[![Fork this repo](https://img.shields.io/badge/1-Fork_this_repo_→-181717?style=for-the-badge&logo=github)](../../fork)
-
-Click above to create your own copy
-
-### Step 2 → Open in Codespaces
-
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/jeffreylsoffer/plaid-wave-sync?quickstart=1)
+
+> First time? GitHub will ask you to fork — click "Create fork" then the Codespace opens automatically.
 
 The setup script runs automatically and walks you through everything:
 - Creates your Plaid account & activates trial (10 free bank connections)
