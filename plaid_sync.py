@@ -394,8 +394,11 @@ def main():
         if public_token:
             access_token, item_id = exchange_public_token(public_token)
             print(f"\n✓ Connected! Add to PLAID_ACCESS_TOKENS:")
-            print(f"  YourBank:{access_token}:Wave Account Name:checking")
+            print(f"  access_token: {access_token}")
             print(f"  item_id: {item_id}")
+            # Write token to file for setup.sh to read
+            with open("/tmp/plaid-new-token.txt", "w") as f:
+                f.write(access_token)
         else:
             print("\n✗ Timed out.")
         return

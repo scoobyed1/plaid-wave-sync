@@ -233,8 +233,8 @@ while [ "$choice" != "s" ]; do
         read -p "  Secret (Production): " PLAID_SECRET
         export PLAID_CLIENT_ID PLAID_SECRET
     fi
-    uv run plaid_sync.py --add-bank | tee /tmp/add-bank-output.txt
-    ADD_BANK_EXIT=${PIPESTATUS[0]}
+    uv run plaid_sync.py --add-bank
+    ADD_BANK_EXIT=$?
     if [ "$ADD_BANK_EXIT" -ne 0 ]; then
         warn "Failed — likely a credentials mismatch (multiple Plaid teams?)."
         echo -e "  Paste correct keys from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
@@ -251,11 +251,12 @@ d.setdefault('environments',{}).setdefault('production',{})['secret']='$PLAID_SE
 with open('$HOME/.config/plaid-cli/config.json','w') as f: json.dump(d,f,indent=2)
 " 2>/dev/null
         fi
-        uv run plaid_sync.py --add-bank | tee /tmp/add-bank-output.txt || warn "Still failing — check your credentials"
+        uv run plaid_sync.py --add-bank || warn "Still failing — check your credentials"
     fi
 
     # If bank was connected, capture the token and ask for Wave account details
-    NEW_TOKEN=$(grep "access_token:" /tmp/add-bank-output.txt 2>/dev/null | awk '{print $2}')
+    NEW_TOKEN=$(cat /tmp/plaid-new-token.txt 2>/dev/null)
+    rm -f /tmp/plaid-new-token.txt
     if [ -n "$NEW_TOKEN" ]; then
         echo ""
         read -p "  Name for this account (e.g. Bluevine, Chase): " BANK_NAME
