@@ -234,7 +234,8 @@ while [ "$choice" != "s" ]; do
         export PLAID_CLIENT_ID PLAID_SECRET
     fi
     uv run plaid_sync.py --add-bank 2>&1 | tee /tmp/add-bank-output.txt
-    if [ $? -ne 0 ]; then
+    ADD_BANK_EXIT=${PIPESTATUS[0]}
+    if [ "$ADD_BANK_EXIT" -ne 0 ]; then
         warn "Failed — likely a credentials mismatch (multiple Plaid teams?)."
         echo -e "  Paste correct keys from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
         echo ""
