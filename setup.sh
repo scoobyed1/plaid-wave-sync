@@ -182,7 +182,7 @@ fi
 
 step "Step 3/6 · Connect your bank accounts"
 
-echo -e "  This opens Plaid Link. Codespaces will tunnel the URL automatically."
+echo -e "  This opens Plaid Link. ${BOLD}Cmd+Click${NC} (or Ctrl+Click) the URL to open it."
 echo ""
 warn "Some banks (Chase, Schwab) need OAuth approval (~24hrs)."
 info "Check status: https://dashboard.plaid.com/activity/status/oauth-institutions"
@@ -190,7 +190,7 @@ echo ""
 
 read -p "  Press Enter to connect a bank (or 's' to skip): " choice
 while [ "$choice" != "s" ]; do
-    plaid link --products transactions || warn "Link failed — try again or skip"
+    plaid link --products transactions 2>&1 | grep -v "Warning:\|Could not open browser"
     echo ""
     read -p "  Press Enter to connect another, or 's' when done: " choice
 done
