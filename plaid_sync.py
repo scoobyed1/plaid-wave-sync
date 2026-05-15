@@ -176,11 +176,20 @@ def fetch_plaid_transactions(access_token, days=30):
         if "error_code" in data:
             log.error(f"Plaid error: {data['error_code']} - {data.get('error_message','')}")
             if data["error_code"] == "ITEM_LOGIN_REQUIRED":
+                log.error("═══════════════════════════════════════════════════════")
+                log.error("⚠️  BANK TOKEN EXPIRED — action required!")
+                log.error("═══════════════════════════════════════════════════════")
+                log.error("Your bank connection needs to be re-authenticated.")
+                log.error("Run this locally or in a Codespace:")
+                log.error("  uv run plaid_sync.py --add-bank")
+                log.error("Then update the PLAID_ACCESS_TOKENS secret.")
                 try:
                     url, _ = generate_reauth_link(access_token)
-                    log.error(f"  Re-auth needed: {url}")
+                    log.error(f"Or open this link directly: {url}")
                 except Exception:
                     pass
+                log.error("═══════════════════════════════════════════════════════")
+                sys.exit(2)  # Distinct exit code for token expiry
             return []
         txns = data.get("transactions", [])
         all_txns.extend(txns)
