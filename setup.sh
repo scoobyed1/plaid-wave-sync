@@ -475,6 +475,8 @@ sleep 10
 RUN_ID=$(gh run list --workflow=sync.yml -L 1 --json databaseId -q '.[0].databaseId' 2>/dev/null)
 if [ -n "$RUN_ID" ]; then
     gh run watch "$RUN_ID" --exit-status 2>/dev/null && success "Test run passed! ✓" || warn "Test run failed — check Actions tab for details"
+    REPO_URL=$(gh repo view --json url -q '.url' 2>/dev/null)
+    echo -e "  ${CYAN}${REPO_URL}/actions/runs/${RUN_ID}${NC}"
 fi
 
 echo ""
