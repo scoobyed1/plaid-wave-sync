@@ -1,6 +1,6 @@
 # plaid-wave-sync
 
-Automatically sync bank transactions from [Plaid](https://plaid.com) → [Wave](https://www.waveapps.com) accounting. No manual data entry.
+Automatically sync bank transactions from [Plaid](https://plaid.com) → [Wave](https://www.waveapps.com) accounting. No Wave Pro subscription necessary.
 
 - **Keyword-based categorization** — auto-generated from your previous year's general ledger
 - **Deduplication** — safe to re-run anytime (uses Plaid transaction IDs)
@@ -16,7 +16,7 @@ Automatically sync bank transactions from [Plaid](https://plaid.com) → [Wave](
 
 [![Fork this repo](https://img.shields.io/badge/1-Fork_this_repo_→-181717?style=for-the-badge&logo=github)](../../fork)
 
-Click above to create your own copy. **Important:** After forking, go to Settings → General → Change visibility → **Private**. This keeps your financial data (transaction logs) hidden. The setup script will also attempt to do this automatically.
+Click above to create your own copy
 
 ### Step 2 → Open in Codespaces
 
@@ -84,40 +84,6 @@ Plaid (bank)              keywords.json           Wave (accounting)
 |----------|-----|
 | **GitHub Actions** (recommended) | Fork → setup → done. Runs daily at 9am ET. |
 | **Any VPS / cron** | `0 13 * * * cd /path && uv run plaid_sync.py --days 3` (9am ET / 1pm UTC) |
-| **Systemd timer** | See below |
-
-<details>
-<summary>Systemd timer setup</summary>
-
-```ini
-# /etc/systemd/system/plaid-sync.service
-[Unit]
-Description=Plaid → Wave sync
-
-[Service]
-Type=oneshot
-WorkingDirectory=/path/to/plaid-wave-sync
-EnvironmentFile=/path/to/.env
-ExecStart=/usr/local/bin/uv run plaid_sync.py --days 3
-```
-
-```ini
-# /etc/systemd/system/plaid-sync.timer
-[Unit]
-Description=Daily plaid sync
-
-[Timer]
-OnCalendar=*-*-* 13:00:00
-Persistent=true
-
-[Install]
-WantedBy=timers.target
-```
-
-```bash
-systemctl enable --now plaid-sync.timer
-```
-</details>
 
 ## FAQ
 
@@ -130,11 +96,8 @@ Yes. Duplicates are silently skipped.
 **What if my bank token expires?**
 The script generates a Plaid Hosted Link URL for re-auth. Open it in any browser, log in, done. Token stays the same.
 
-**Do I need an LLM?**
-No. Keywords are auto-generated from your Wave general ledger CSV — the script reads how you've already categorized transactions and builds the mapping. No AI needed.
-
-**What about credit card payments?**
-CC payments (transfers between checking and CC) can't be recorded via Wave's API as inter-account transfers. They go to "Uncategorized Expense" for you to recategorize in Wave as a CC payment. All actual CC charges sync correctly as expenses.
+**What about credit card bill payments?**
+CC payments (transfers between checking and CC) can't be recorded via Wave's API as inter-account transfers. They go to "Uncategorized Expense" for you to recategorize in Wave as a CC payment. This is the same as Wave's native bank sync. All actual CC charges sync correctly as expenses.
 
 ## Requirements
 
