@@ -1,7 +1,10 @@
 {
   "name": "plaid-wave-sync",
   "image": "mcr.microsoft.com/devcontainers/python:3.12",
-  "postCreateCommand": "curl -LsSf https://astral.sh/uv/install.sh | sh && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc",
+  "postCreateCommand": "curl -LsSf https://astral.sh/uv/install.sh | sh && brew install plaid/plaid-cli/plaid && echo 'export PATH=\"$HOME/.local/bin:$PATH\"' >> ~/.bashrc",
+  "features": {
+    "ghcr.io/meaningful-ooo/devcontainer-features/homebrew:2": {}
+  },
   "customizations": {
     "vscode": {
       "settings": {
