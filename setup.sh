@@ -157,9 +157,10 @@ else
         warn "Invalid URL. Let's enter credentials manually instead:"
         echo -e "  ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
         echo ""
-        read -p "  Client ID: " plaid_client_id
-        read -p "  Secret (Production): " plaid_secret
-        plaid config set --client-id "$plaid_client_id" --secret "$plaid_secret" --env production 2>/dev/null
+        read -p "  Client ID: " PLAID_CLIENT_ID
+        read -p "  Secret (Production): " PLAID_SECRET
+        export PLAID_CLIENT_ID PLAID_SECRET
+        plaid config set --client-id "$PLAID_CLIENT_ID" --secret "$PLAID_SECRET" --env production 2>/dev/null
         success "Credentials saved"
     fi
 
@@ -176,9 +177,10 @@ else
             warn "Couldn't fetch keys. Enter them manually:"
             echo -e "  ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
             echo ""
-            read -p "  Client ID: " plaid_client_id
-            read -p "  Secret (Production): " plaid_secret
-            plaid config set --client-id "$plaid_client_id" --secret "$plaid_secret" --env production 2>/dev/null
+            read -p "  Client ID: " PLAID_CLIENT_ID
+            read -p "  Secret (Production): " PLAID_SECRET
+            export PLAID_CLIENT_ID PLAID_SECRET
+            plaid config set --client-id "$PLAID_CLIENT_ID" --secret "$PLAID_SECRET" --env production 2>/dev/null
             success "Credentials saved"
         fi
     fi
