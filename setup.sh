@@ -131,10 +131,21 @@ else
     grep -o 'https://[^ ]*' /tmp/plaid-login.log | head -1 | xargs -I{} echo -e "\n  ${CYAN}{}${NC}\n"
 
     read -p "  Paste the failed localhost URL: " callback_url
-    [ -n "$callback_url" ] && curl -s "$callback_url" &>/dev/null
-    sleep 3
-    wait $PLAID_PID 2>/dev/null || true
-    success "Logged in"
+    if echo "$callback_url" | grep -q "localhost.*callback.*code="; then
+        curl -s "$callback_url" &>/dev/null
+        sleep 3
+        wait $PLAID_PID 2>/dev/null || true
+        success "Logged in"
+    else
+        wait $PLAID_PID 2>/dev/null || true
+        warn "Invalid URL. Let's enter credentials manually instead:"
+        echo -e "  ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
+        echo ""
+        read -p "  Client ID: " plaid_client_id
+        read -p "  Secret (Production): " plaid_secret
+        plaid config set --client-id "$plaid_client_id" --secret "$plaid_secret" --env production 2>/dev/null
+        success "Credentials saved"
+    fi
 
     echo ""
     if plaid keys fetch 2>/dev/null; then
