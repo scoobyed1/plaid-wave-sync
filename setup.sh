@@ -138,26 +138,35 @@ else
     read -p "  Paste the failed localhost URL: " callback_url
     if echo "$callback_url" | grep -q "localhost.*callback.*code="; then
         info "Sending callback to plaid login server..."
-        # Send callback to plaid login server, give it time to process
-        curl -v "$callback_url" &>/tmp/plaid-curl.log &
+        curl -s "$callback_url" &>/dev/null &
         CURL_PID=$!
-        info "Waiting for token exchange (5s)..."
         sleep 5
         kill $CURL_PID 2>/dev/null || true
         kill $PLAID_PID 2>/dev/null || true
         wait $PLAID_PID 2>/dev/null || true
         wait $CURL_PID 2>/dev/null || true
-        info "curl log: $(cat /tmp/plaid-curl.log 2>/dev/null | tail -5)"
-        info "plaid login log: $(cat /tmp/plaid-login.log 2>/dev/null | tail -5)"
-        if plaid config 2>/dev/null | grep -q "client_id"; then
-            success "Logged in"
+
+        # Login succeeded — now select team and fetch keys
+        FIRST_TEAM=$(plaid teams list 2>/dev/null | awk 'NR==2 {print $2}')
+        [ -n "$FIRST_TEAM" ] && plaid teams use "$FIRST_TEAM" 2>/dev/null
+        plaid keys fetch 2>/dev/null || true
+
+        export PLAID_CLIENT_ID=$(plaid config 2>/dev/null | grep "Client ID" | awk '{print $NF}')
+        if [ -n "$PLAID_CLIENT_ID" ]; then
+            success "Logged in (Client ID: $PLAID_CLIENT_ID)"
+            if [ -z "$PLAID_SECRET" ]; then
+                echo -e "  Secret isn't shown by CLI. Get it from: ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
+                read -p "  Secret (Production): " PLAID_SECRET
+                export PLAID_SECRET
+            fi
         else
-            warn "Login didn't complete. Let's enter credentials manually:"
+            warn "Couldn't get keys. Enter them manually:"
             echo -e "  ${CYAN}https://dashboard.plaid.com/developers/keys${NC}"
             echo ""
-            read -p "  Client ID: " plaid_client_id
-            read -p "  Secret (Production): " plaid_secret
-            plaid config set --client-id "$plaid_client_id" --secret "$plaid_secret" --env production 2>/dev/null
+            read -p "  Client ID: " PLAID_CLIENT_ID
+            read -p "  Secret (Production): " PLAID_SECRET
+            export PLAID_CLIENT_ID PLAID_SECRET
+            plaid config set --client-id "$PLAID_CLIENT_ID" --secret "$PLAID_SECRET" --env production 2>/dev/null
             success "Credentials saved"
         fi
     else
