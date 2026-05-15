@@ -67,8 +67,11 @@ echo ""
 # Step 5: Build keywords with Copilot
 echo "▶ Step 5: Build keyword mappings"
 echo ""
-echo "  Drag your bank CSV (or Wave transaction export) into the imports/ folder."
-echo "  This folder is gitignored — your data stays local."
+echo "  Export your transaction history from Wave:"
+echo "    Wave → Reports → Account Transactions (General Ledger) → Export CSV"
+echo "    (Set date range to last 12 months for best coverage)"
+echo ""
+echo "  Drag the CSV into the imports/ folder. This folder is gitignored."
 echo ""
 read -p "  Path to your CSV (e.g. imports/transactions.csv) or Enter to skip: " csv_path
 if [ -n "$csv_path" ] && [ -f "$csv_path" ]; then
