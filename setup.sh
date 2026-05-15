@@ -322,24 +322,66 @@ if [ -z "$csv_path" ]; then
 fi
 
 if [ -n "$csv_path" ] && [ -f "$csv_path" ]; then
-    # Extract unique transaction descriptions from the Wave CSV
     export PATH="$HOME/.local/bin:$PATH"
+    
+    # Get client names and accounts from Wave, then extract clean descriptions
+    ACCOUNTS_OUTPUT=$(uv run plaid_sync.py --dump-accounts 2>/dev/null | grep -E "^\[|^  " | grep -v "Accounts Receivable\|Transfer Clearing\|Payroll Clearing\|Cash on Hand\|Wave Payroll\|Owner")
+
     uv run --with httpx python3 -c "
-import csv, sys
-seen = set()
+import csv, os, sys, httpx
+
+# Get client names from Wave invoices
+clients = set()
+biz_id = os.environ.get('WAVE_BUSINESS_ID', '')
+token = os.environ.get('WAVE_ACCESS_TOKEN', '')
+if biz_id and token:
+    try:
+        r = httpx.post('https://gql.waveapps.com/graphql/public',
+            headers={'Authorization': f'Bearer {token}'},
+            json={'query': 'query(\$id:ID!){business(id:\$id){invoices(page:1,pageSize:100){edges{node{customer{name}}}}}}',
+                  'variables': {'id': biz_id}}, timeout=30)
+        for e in r.json().get('data',{}).get('business',{}).get('invoices',{}).get('edges',[]):
+            clients.add(e['node']['customer']['name'].lower())
+    except: pass
+
+# Patterns that indicate internal/non-expense transactions
+skip_prefixes = ('Starting Balance', 'Totals and Ending Balance', 'Balance Change', 
+                 'Description', 'DESCRIPTION', 'Total employee', 'Total net pay', 
+                 'Total employer', 'Total gross pay', '(Deleted)', 'Before-tax deduction',
+                 'Payroll tax liabilities', 'Payroll period ending', 'Incoming Wire',
+                 'Incoming International', 'Mobile Deposit', 'Interest earned',
+                 'Transfer from transfer clearing', 'Transfer to', 'Transfer from',
+                 'AUTOMATIC PAYMENT', 'CHASE CREDIT CRD')
+skip_contains = ('Editor', 'Camera Op', 'Lighting', 'Travel Day', 'Audio', 'Photographer',
+                 'Directing', 'Additional', 'Media Management', 'Post Coordinator',
+                 'Music Sync', 'Kit Fee', 'DP Fee', 'Transportation', '- Bill ',
+                 'ACH Pmt', 'ACH payment to', 'PAYMENTS', ', SALE')
+
 with open(sys.argv[1]) as f:
+    seen = set()
     for row in csv.reader(f):
         if len(row) > 2:
             desc = row[2].strip()
-            if desc and desc not in seen and desc not in ('Description','Starting Balance','Totals and Ending Balance','Balance Change'):
-                seen.add(desc)
-                print(desc)
+            if not desc or desc in seen:
+                continue
+            if any(desc.startswith(p) for p in skip_prefixes):
+                continue
+            if any(s in desc for s in skip_contains):
+                continue
+            # Skip invoice headers (Client Name - Number)
+            parts = desc.split(' - ')
+            if len(parts) == 2 and parts[1].strip().replace('A','').replace('B','').isdigit():
+                continue
+            # Skip if it matches a known client name
+            desc_lower = desc.lower()
+            if any(c in desc_lower for c in clients if len(c) > 3):
+                continue
+            seen.add(desc)
+            print(desc)
 " "$csv_path" 2>/dev/null > imports/unique_descriptions.txt
 
     DESC_COUNT=$(wc -l < imports/unique_descriptions.txt | tr -d ' ')
-    success "Extracted $DESC_COUNT unique transaction descriptions"
-
-    ACCOUNTS_OUTPUT=$(uv run plaid_sync.py --dump-accounts 2>/dev/null | grep -E "^\[|^  " | grep -v "Accounts Receivable\|Transfer Clearing\|Payroll Clearing\|Cash on Hand\|Wave Payroll\|Owner")
+    success "Extracted $DESC_COUNT vendor transactions (filtered clients, transfers, payroll)"
 
     CLIENTS=$(WAVE_ACCESS_TOKEN="$WAVE_ACCESS_TOKEN" WAVE_BUSINESS_ID="${WAVE_BUSINESS_ID}" uv run --with httpx python3 -c "
 import os, httpx
