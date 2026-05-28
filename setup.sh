@@ -390,6 +390,11 @@ if [ -f /tmp/plaid-tokens-all.jsonl ]; then
             PLAID_ACCESS_TOKENS=$(cat /tmp/plaid-access-tokens.txt | tr -d '\n')
         fi
 
+        echo "  [debug] PLAID_ACCESS_TOKENS='$PLAID_ACCESS_TOKENS'"
+        echo "  [debug] /tmp/plaid-tokens-all.jsonl exists: $([ -f /tmp/plaid-tokens-all.jsonl ] && echo YES || echo NO)"
+        echo "  [debug] /tmp/wave-account-options.txt exists: $([ -f /tmp/wave-account-options.txt ] && echo YES || echo NO)"
+        [ -f /tmp/plaid-tokens-all.jsonl ] && echo "  [debug] jsonl contents: $(cat /tmp/plaid-tokens-all.jsonl | wc -l) lines"
+
         # Check for unmatched accounts in the output
         if [ -z "$PLAID_ACCESS_TOKENS" ]; then
             # Read all lines from the jsonl into an array
