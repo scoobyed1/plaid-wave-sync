@@ -245,8 +245,12 @@ while [ "$choice" != "n" ]; do
         read -p "  Access token: " manual_token
         read -p "  Account name (e.g. Bluevine): " manual_name
         read -p "  Last 4 digits of account number: " manual_mask
-        read -p "  Type — checking or credit_card (default: checking): " manual_type
-        [ -z "$manual_type" ] && manual_type="checking"
+        read -p "  Type — 1. checking  2. credit card (default: 1): " manual_type_choice
+        if [ "$manual_type_choice" = "2" ]; then
+            manual_type="credit_card"
+        else
+            manual_type="checking"
+        fi
         echo "{\"access_token\":\"$manual_token\",\"accounts\":[{\"name\":\"$manual_name\",\"mask\":\"$manual_mask\",\"type\":\"$manual_type\"}]}" >> /tmp/plaid-tokens-all.jsonl
         success "Token saved for matching"
     else
