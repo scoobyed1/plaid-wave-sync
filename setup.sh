@@ -245,7 +245,10 @@ while [ "$choice" != "n" ]; do
         read -p "  Access token: " manual_token
         read -p "  Account name (e.g. Bluevine): " manual_name
         read -p "  Last 4 digits of account number: " manual_mask
-        read -p "  Type — 1. checking  2. credit card (default: 1): " manual_type_choice
+        read -p "  Type — 1. checking  2. credit card: " manual_type_choice
+        while [ "$manual_type_choice" != "1" ] && [ "$manual_type_choice" != "2" ]; do
+            read -p "  Please enter 1 or 2: " manual_type_choice
+        done
         if [ "$manual_type_choice" = "2" ]; then
             manual_type="credit_card"
         else
