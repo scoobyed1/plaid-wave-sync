@@ -334,7 +334,7 @@ if [ -z "$WAVE_ACCESS_TOKEN" ]; then
         umask 077
         printf '%s' "$WAVE_ACCESS_TOKEN" > "$WAVE_TOKEN_FILE"
         chmod 600 "$WAVE_TOKEN_FILE"
-        info "Cached locally for future re-runs (chmod 600, outside repo)"
+        info "Saved locally so you won't need to paste this again."
     fi
 fi
 
