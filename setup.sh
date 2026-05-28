@@ -244,8 +244,9 @@ while [ "$choice" != "n" ]; do
     if [ "$choice" = "p" ]; then
         read -p "  Access token: " manual_token
         read -p "  Account name (e.g. Bluevine): " manual_name
-        read -p "  Type (checking or credit_card): " manual_type
-        read -p "  Last 4 digits (mask): " manual_mask
+        read -p "  Last 4 digits of account number: " manual_mask
+        read -p "  Type — checking or credit_card (default: checking): " manual_type
+        [ -z "$manual_type" ] && manual_type="checking"
         echo "{\"access_token\":\"$manual_token\",\"accounts\":[{\"name\":\"$manual_name\",\"mask\":\"$manual_mask\",\"type\":\"$manual_type\"}]}" >> /tmp/plaid-tokens-all.jsonl
         success "Token saved for matching"
     else
@@ -402,7 +403,7 @@ if [ -f /tmp/plaid-tokens-all.jsonl ]; then
                         echo ""
                     fi
 
-                    read -p "  Enter number or name: " wave_input
+                    read -p "  Enter number or name: " wave_input </dev/tty
                     # If they typed a number, look it up
                     if [ -n "$wave_input" ] && [ "$wave_input" -eq "$wave_input" ] 2>/dev/null; then
                         wave_name=$(sed -n "${wave_input}p" /tmp/wave-account-options.txt 2>/dev/null)
