@@ -390,18 +390,10 @@ if [ -f /tmp/plaid-tokens-all.jsonl ]; then
             PLAID_ACCESS_TOKENS=$(cat /tmp/plaid-access-tokens.txt | tr -d '\n')
         fi
 
-        echo "  [debug] PLAID_ACCESS_TOKENS='$PLAID_ACCESS_TOKENS'"
-        echo "  [debug] /tmp/plaid-tokens-all.jsonl exists: $([ -f /tmp/plaid-tokens-all.jsonl ] && echo YES || echo NO)"
-        echo "  [debug] /tmp/wave-account-options.txt exists: $([ -f /tmp/wave-account-options.txt ] && echo YES || echo NO)"
-        [ -f /tmp/plaid-tokens-all.jsonl ] && echo "  [debug] jsonl contents: $(cat /tmp/plaid-tokens-all.jsonl | wc -l) lines"
-
         # Check for unmatched accounts in the output
         if [ -z "$PLAID_ACCESS_TOKENS" ]; then
             # Read all lines from the jsonl into an array
             mapfile -t UNMATCHED_LINES < /tmp/plaid-tokens-all.jsonl 2>/dev/null
-
-            echo "  [debug] inside if block, array size: ${#UNMATCHED_LINES[@]}"
-            echo "  [debug] first line: ${UNMATCHED_LINES[0]:0:60}"
 
             if [ ${#UNMATCHED_LINES[@]} -eq 0 ]; then
                 warn "No accounts found in token file."
