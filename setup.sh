@@ -218,7 +218,7 @@ if [ "$EXISTING_ITEMS" -gt "0" ]; then
     success "Found $EXISTING_ITEMS connected bank(s):"
     plaid item list 2>/dev/null | grep -v "^$" | while read -r line; do echo -e "    $line"; done
     # Rebuild the token file from existing items for matching later
-    plaid item list --json 2>/dev/null | python3 -c "
+    plaid item list --json 2>/dev/null | uv run python3 -c "
 import json, sys
 items = json.load(sys.stdin)
 with open('/tmp/plaid-tokens-all.jsonl', 'w') as f:
@@ -275,7 +275,7 @@ while [ "$choice" != "n" ]; do
             read -p "  Secret (Production): " PLAID_SECRET
             export PLAID_CLIENT_ID PLAID_SECRET
             if [ -f ~/.config/plaid-cli/config.json ]; then
-                python3 -c "
+                uv run python3 -c "
 import json
 with open('$HOME/.config/plaid-cli/config.json') as f: d=json.load(f)
 d.setdefault('environments',{}).setdefault('production',{})['secret']='$PLAID_SECRET'
@@ -410,7 +410,7 @@ if [ -f /tmp/plaid-tokens-all.jsonl ]; then
             for line in "${UNMATCHED_LINES[@]}"; do
                 [ -z "$line" ] && continue
 
-                PARSED=$(printf '%s' "$line" | python3 -c "
+                PARSED=$(printf '%s' "$line" | uv run python3 -c "
 import json,sys
 d=json.load(sys.stdin)
 a=d['accounts'][0]
@@ -473,13 +473,13 @@ step "Step 5/6 · Build keyword mappings"
 # The shipped example has a "_comment" field; build_keywords.py output doesn't.
 KEYWORDS_CUSTOMIZED="false"
 if [ -f keywords.json ]; then
-    if ! python3 -c "import json,sys; d=json.load(open('keywords.json')); sys.exit(0 if '_comment' in d else 1)" 2>/dev/null; then
+    if ! uv run python3 -c "import json,sys; d=json.load(open('keywords.json')); sys.exit(0 if '_comment' in d else 1)" 2>/dev/null; then
         KEYWORDS_CUSTOMIZED="true"
     fi
 fi
 
 if [ "$KEYWORDS_CUSTOMIZED" = "true" ]; then
-    KW_COUNT=$(python3 -c "import json; print(len(json.load(open('keywords.json'))['keywords']))" 2>/dev/null)
+    KW_COUNT=$(uv run python3 -c "import json; print(len(json.load(open('keywords.json'))['keywords']))" 2>/dev/null)
     success "keywords.json already built from your CSV ($KW_COUNT keywords)"
     read -p "  Rebuild from a new CSV? (y/n): " rebuild
     if [ "$rebuild" != "y" ]; then
@@ -573,7 +573,7 @@ if [ "$save_secrets" = "y" ]; then
             uv run plaid_sync.py --dump-accounts 2>/dev/null | grep "^  " | head -20
             echo ""
             echo -e "  ${BOLD}Your connected Plaid items:${NC}"
-            echo "$PLAID_ITEMS" | python3 -c "
+            echo "$PLAID_ITEMS" | uv run python3 -c "
 import json, sys
 items = json.load(sys.stdin)
 for i, item in enumerate(items):
@@ -585,7 +585,7 @@ for i, item in enumerate(items):
 
             # Build token string interactively
             BUILT_TOKENS=""
-            echo "$PLAID_ITEMS" | python3 -c "
+            echo "$PLAID_ITEMS" | uv run python3 -c "
 import json, sys
 items = json.load(sys.stdin)
 for item in items:
