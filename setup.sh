@@ -421,9 +421,19 @@ fi
 
 step "Step 5/6 · Build keyword mappings"
 
-if [ -f keywords.json ] && [ "$(python3 -c "import json; print(len(json.load(open('keywords.json')).get('keywords',{})))" 2>/dev/null)" -gt "5" ]; then
-    success "keywords.json already exists ($(python3 -c "import json; print(len(json.load(open('keywords.json'))['keywords']))" 2>/dev/null) keywords)"
-    read -p "  Rebuild from CSV? (y/n): " rebuild
+# Check if keywords.json has been customized (built from user's CSV)
+# The shipped example has a "_comment" field; build_keywords.py output doesn't.
+KEYWORDS_CUSTOMIZED="false"
+if [ -f keywords.json ]; then
+    if ! python3 -c "import json,sys; d=json.load(open('keywords.json')); sys.exit(0 if '_comment' in d else 1)" 2>/dev/null; then
+        KEYWORDS_CUSTOMIZED="true"
+    fi
+fi
+
+if [ "$KEYWORDS_CUSTOMIZED" = "true" ]; then
+    KW_COUNT=$(python3 -c "import json; print(len(json.load(open('keywords.json'))['keywords']))" 2>/dev/null)
+    success "keywords.json already built from your CSV ($KW_COUNT keywords)"
+    read -p "  Rebuild from a new CSV? (y/n): " rebuild
     if [ "$rebuild" != "y" ]; then
         csv_path=""
     fi
