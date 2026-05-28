@@ -387,15 +387,19 @@ if [ -f /tmp/plaid-tokens-all.jsonl ]; then
 
         # Handle unmatched accounts interactively
         if [ -f /tmp/plaid-access-tokens.txt ]; then
-            PLAID_ACCESS_TOKENS=$(cat /tmp/plaid-access-tokens.txt)
+            PLAID_ACCESS_TOKENS=$(cat /tmp/plaid-access-tokens.txt | tr -d '\n')
         fi
 
         # Check for unmatched accounts in the output
-        if grep -q "UNMATCHED" /tmp/plaid-access-tokens.txt 2>/dev/null || [ -z "$PLAID_ACCESS_TOKENS" ]; then
-            # Build list of unmatched accounts and prompt for each
-            UNMATCHED_LINES=$(cat /tmp/plaid-tokens-all.jsonl 2>/dev/null)
-            IFS=$'\n'
-            for line in $UNMATCHED_LINES; do
+        if [ -z "$PLAID_ACCESS_TOKENS" ]; then
+            # Read all lines from the jsonl into an array
+            mapfile -t UNMATCHED_LINES < /tmp/plaid-tokens-all.jsonl 2>/dev/null
+
+            if [ ${#UNMATCHED_LINES[@]} -eq 0 ]; then
+                warn "No accounts found in token file."
+            fi
+
+            for line in "${UNMATCHED_LINES[@]}"; do
                 [ -z "$line" ] && continue
 
                 ACCT_NAME=$(echo "$line" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['accounts'][0]['name'])" 2>/dev/null)
@@ -434,7 +438,6 @@ if [ -f /tmp/plaid-tokens-all.jsonl ]; then
                     fi
                 fi
             done
-            unset IFS
         fi
 
         export PLAID_ACCESS_TOKENS
