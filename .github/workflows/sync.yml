@@ -20,6 +20,22 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
+      - name: Check secrets configured
+        env:
+          PLAID_CLIENT_ID: ${{ secrets.PLAID_CLIENT_ID }}
+          PLAID_ACCESS_TOKENS: ${{ secrets.PLAID_ACCESS_TOKENS }}
+        run: |
+          if [ -z "$PLAID_CLIENT_ID" ] || [ -z "$PLAID_ACCESS_TOKENS" ]; then
+            echo "::error::Setup incomplete. Open this repo in a Codespace and run ./setup.sh to configure your accounts."
+            echo ""
+            echo "Missing:"
+            [ -z "$PLAID_CLIENT_ID" ] && echo "  - PLAID_CLIENT_ID"
+            [ -z "$PLAID_ACCESS_TOKENS" ] && echo "  - PLAID_ACCESS_TOKENS"
+            echo ""
+            echo "Fix: https://github.com/${{ github.repository }}#setup-5-minutes"
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
 
       - uses: astral-sh/setup-uv@v4
@@ -38,4 +54,8 @@ jobs:
           if [ "$DRY_RUN" = "true" ]; then
             CMD="$CMD --dry-run"
           fi
-          $CMD
+          $CMD || EXIT_CODE=$?
+          if [ "${EXIT_CODE:-0}" = "2" ]; then
+            echo "::error::Bank token expired. Open a Codespace and run: uv run plaid_sync.py --reauth"
+          fi
+          exit ${EXIT_CODE:-0}

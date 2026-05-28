@@ -211,15 +211,34 @@ fi
 
 step "Step 3/6 · Connect your bank accounts"
 
-echo -e "  Connect your bank accounts using Plaid Hosted Link."
-echo -e "  ${BOLD}Cmd+Click${NC} (or Ctrl+Click) the URL that appears."
-echo ""
-warn "Some banks (Chase, Schwab) need OAuth approval (~24hrs)."
-info "Check status: https://dashboard.plaid.com/activity/status/oauth-institutions"
-info "If you need to come back later, reopen this Codespace and run: ./setup.sh"
-echo ""
-
-read -p "  Press Enter to connect a bank, 'p' to paste a token, or 'n' to skip: " choice
+# Check if banks are already connected from a previous run
+EXISTING_ITEMS=$(plaid item list 2>/dev/null | grep -c "access-" || echo "0")
+if [ "$EXISTING_ITEMS" -gt "0" ]; then
+    success "Found $EXISTING_ITEMS connected bank(s):"
+    plaid item list 2>/dev/null | grep -v "^$" | while read -r line; do echo -e "    $line"; done
+    # Rebuild the token file from existing items for matching later
+    plaid item list --json 2>/dev/null | python3 -c "
+import json, sys
+items = json.load(sys.stdin)
+with open('/tmp/plaid-tokens-all.jsonl', 'w') as f:
+    for item in items:
+        for acct in item.get('accounts', [{'name': item.get('institution_name','Bank'), 'mask': '0000', 'type': 'checking'}]):
+            entry = {'access_token': item['access_token'], 'accounts': [acct]}
+            f.write(json.dumps(entry) + '\n')
+" 2>/dev/null && info "Tokens loaded for matching"
+    echo ""
+    read -p "  Add another bank? (y/n): " choice
+    [ "$choice" != "y" ] && choice="n"
+else
+    echo -e "  Connect your bank accounts using Plaid Hosted Link."
+    echo -e "  ${BOLD}Cmd+Click${NC} (or Ctrl+Click) the URL that appears."
+    echo ""
+    warn "Some banks (Chase, Schwab) need OAuth approval (~24hrs)."
+    info "Check status: https://dashboard.plaid.com/activity/status/oauth-institutions"
+    info "If you need to come back later, reopen this Codespace and run: ./setup.sh"
+    echo ""
+    read -p "  Press Enter to connect a bank, 'p' to paste a token, or 'n' to skip: " choice
+fi
 while [ "$choice" != "n" ]; do
     if [ "$choice" = "p" ]; then
         read -p "  Access token: " manual_token
@@ -278,19 +297,44 @@ echo ""
 
 step "Step 4/6 · Wave setup"
 
+# Persistent storage location for the Wave token (outside the repo)
+WAVE_TOKEN_FILE="$HOME/.config/plaid-wave-sync/wave.token"
+
+# Try to load from local cache (set on previous setup runs)
+if [ -z "$WAVE_ACCESS_TOKEN" ] && [ -f "$WAVE_TOKEN_FILE" ]; then
+    WAVE_ACCESS_TOKEN=$(cat "$WAVE_TOKEN_FILE" 2>/dev/null)
+    [ -n "$WAVE_ACCESS_TOKEN" ] && success "Loaded saved Wave token from $WAVE_TOKEN_FILE"
+fi
+
 if [ -z "$WAVE_ACCESS_TOKEN" ]; then
-    echo -e "  Create a Wave app to get your API token:"
-    echo -e "  ${CYAN}https://developer-apps.waveapps.com/apps/create/${NC}"
-    echo ""
-    echo -e "  Fill in:"
-    echo -e "    Name:          ${BOLD}plaid-wave-sync${NC}"
-    echo -e "    Description:   ${BOLD}Syncs bank transactions from Plaid${NC}"
-    echo -e "    Redirect URI:  ${BOLD}http://localhost${NC}"
-    echo ""
-    echo -e "  After creating, copy the ${BOLD}Full Access Token${NC} from the app page."
-    echo ""
-    read -p "  Paste your Wave token: " WAVE_ACCESS_TOKEN
+    # Check if it's already saved as a GitHub secret (user re-running setup)
+    if gh secret list 2>/dev/null | grep -q "WAVE_ACCESS_TOKEN"; then
+        info "WAVE_ACCESS_TOKEN already saved in GitHub secrets, but we need a copy locally for matching."
+        echo -e "  Get it from: ${CYAN}https://developer-apps.waveapps.com${NC} → your app → Full Access Token"
+        read -p "  Paste your Wave token: " WAVE_ACCESS_TOKEN
+    else
+        echo -e "  Create a Wave app to get your API token:"
+        echo -e "  ${CYAN}https://developer-apps.waveapps.com/apps/create/${NC}"
+        echo ""
+        echo -e "  Fill in:"
+        echo -e "    Name:          ${BOLD}plaid-wave-sync${NC}"
+        echo -e "    Description:   ${BOLD}Syncs bank transactions from Plaid${NC}"
+        echo -e "    Redirect URI:  ${BOLD}http://localhost${NC}"
+        echo ""
+        echo -e "  After creating, copy the ${BOLD}Full Access Token${NC} from the app page."
+        echo ""
+        read -p "  Paste your Wave token: " WAVE_ACCESS_TOKEN
+    fi
     export WAVE_ACCESS_TOKEN
+
+    # Cache locally with restrictive permissions (outside the repo, gitignored regardless)
+    if [ -n "$WAVE_ACCESS_TOKEN" ]; then
+        mkdir -p "$(dirname "$WAVE_TOKEN_FILE")"
+        umask 077
+        printf '%s' "$WAVE_ACCESS_TOKEN" > "$WAVE_TOKEN_FILE"
+        chmod 600 "$WAVE_TOKEN_FILE"
+        info "Cached locally for future re-runs (chmod 600, outside repo)"
+    fi
 fi
 
 echo ""
@@ -306,7 +350,7 @@ for e in r.json()['data']['businesses']['edges']:
         print(f\"{e['node']['id']}|{e['node']['name']}\")
 " 2>/dev/null)
 
-BIZ_COUNT=$(echo "$BIZ_LIST" | wc -l | tr -d ' ')
+BIZ_COUNT=$(echo "$BIZ_LIST" | grep -c '|' || echo "0")
 if [ "$BIZ_COUNT" -gt "1" ]; then
     echo -e "  ${BOLD}Multiple Wave businesses found:${NC}"
     echo "$BIZ_LIST" | awk -F'|' '{printf "    %d. %s\n", NR, $2}'
@@ -325,47 +369,51 @@ echo ""
 # ─── Match Plaid accounts to Wave accounts ────────────────────────────────────
 
 if [ -f /tmp/plaid-tokens-all.jsonl ]; then
-    info "Matching your bank accounts to Wave..."
-    export WAVE_ACCESS_TOKEN WAVE_BUSINESS_ID
-    uv run scripts/match_accounts.py
+    if [ -z "$WAVE_BUSINESS_ID" ]; then
+        warn "Wave business ID not set — skipping auto-match. You'll set tokens manually in Step 6."
+    else
+        info "Matching your bank accounts to Wave..."
+        export WAVE_ACCESS_TOKEN WAVE_BUSINESS_ID
+        uv run scripts/match_accounts.py
 
-    # Handle unmatched accounts interactively
-    if [ -f /tmp/plaid-access-tokens.txt ]; then
-        PLAID_ACCESS_TOKENS=$(cat /tmp/plaid-access-tokens.txt)
-    fi
-
-    # Check for unmatched accounts in the output
-    if grep -q "UNMATCHED" /tmp/plaid-access-tokens.txt 2>/dev/null || [ -z "$PLAID_ACCESS_TOKENS" ]; then
-        # Show available Wave accounts
-        if [ -f /tmp/wave-account-options.txt ]; then
-            echo ""
-            echo -e "  ${BOLD}Available Wave accounts:${NC}"
-            cat /tmp/wave-account-options.txt | awk '{printf "    %d. %s\n", NR, $0}'
-            echo ""
+        # Handle unmatched accounts interactively
+        if [ -f /tmp/plaid-access-tokens.txt ]; then
+            PLAID_ACCESS_TOKENS=$(cat /tmp/plaid-access-tokens.txt)
         fi
-        # Read the jsonl and ask for each
-        while IFS= read -r line; do
-            if [ -n "$line" ]; then
-                ACCT_NAME=$(echo "$line" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['accounts'][0]['name'])" 2>/dev/null)
-                ACCT_TOKEN=$(echo "$line" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['access_token'])" 2>/dev/null)
-                ACCT_TYPE=$(echo "$line" | python3 -c "import json,sys; d=json.load(sys.stdin); a=d['accounts'][0]; print('credit_card' if a['type']=='credit_card' else 'checking')" 2>/dev/null)
-                read -p "  Wave account for '$ACCT_NAME' ($ACCT_TYPE): " wave_name
-                if [ -n "$wave_name" ]; then
-                    ENTRY="${ACCT_NAME}:${ACCT_TOKEN}:${wave_name}:${ACCT_TYPE}"
-                    if [ -z "$PLAID_ACCESS_TOKENS" ]; then
-                        PLAID_ACCESS_TOKENS="$ENTRY"
-                    else
-                        PLAID_ACCESS_TOKENS="${PLAID_ACCESS_TOKENS},${ENTRY}"
+
+        # Check for unmatched accounts in the output
+        if grep -q "UNMATCHED" /tmp/plaid-access-tokens.txt 2>/dev/null || [ -z "$PLAID_ACCESS_TOKENS" ]; then
+            # Show available Wave accounts
+            if [ -f /tmp/wave-account-options.txt ]; then
+                echo ""
+                echo -e "  ${BOLD}Available Wave accounts:${NC}"
+                cat /tmp/wave-account-options.txt | awk '{printf "    %d. %s\n", NR, $0}'
+                echo ""
+            fi
+            # Read the jsonl and ask for each
+            while IFS= read -r line; do
+                if [ -n "$line" ]; then
+                    ACCT_NAME=$(echo "$line" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['accounts'][0]['name'])" 2>/dev/null)
+                    ACCT_TOKEN=$(echo "$line" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['access_token'])" 2>/dev/null)
+                    ACCT_TYPE=$(echo "$line" | python3 -c "import json,sys; d=json.load(sys.stdin); a=d['accounts'][0]; print('credit_card' if a['type']=='credit_card' else 'checking')" 2>/dev/null)
+                    read -p "  Wave account for '$ACCT_NAME' ($ACCT_TYPE): " wave_name
+                    if [ -n "$wave_name" ]; then
+                        ENTRY="${ACCT_NAME}:${ACCT_TOKEN}:${wave_name}:${ACCT_TYPE}"
+                        if [ -z "$PLAID_ACCESS_TOKENS" ]; then
+                            PLAID_ACCESS_TOKENS="$ENTRY"
+                        else
+                            PLAID_ACCESS_TOKENS="${PLAID_ACCESS_TOKENS},${ENTRY}"
+                        fi
                     fi
                 fi
-            fi
-        done < /tmp/plaid-tokens-all.jsonl
-    fi
+            done < /tmp/plaid-tokens-all.jsonl
+        fi
 
-    export PLAID_ACCESS_TOKENS
-    rm -f /tmp/plaid-tokens-all.jsonl /tmp/plaid-access-tokens.txt /tmp/wave-account-options.txt
-    if [ -n "$PLAID_ACCESS_TOKENS" ]; then
-        success "PLAID_ACCESS_TOKENS ready"
+        export PLAID_ACCESS_TOKENS
+        rm -f /tmp/plaid-tokens-all.jsonl /tmp/plaid-access-tokens.txt /tmp/wave-account-options.txt
+        if [ -n "$PLAID_ACCESS_TOKENS" ]; then
+            success "PLAID_ACCESS_TOKENS ready"
+        fi
     fi
 fi
 
@@ -373,7 +421,16 @@ fi
 
 step "Step 5/6 · Build keyword mappings"
 
-echo -e "  Export your transaction history from Wave:"
+if [ -f keywords.json ] && [ "$(python3 -c "import json; print(len(json.load(open('keywords.json')).get('keywords',{})))" 2>/dev/null)" -gt "5" ]; then
+    success "keywords.json already exists ($(python3 -c "import json; print(len(json.load(open('keywords.json'))['keywords']))" 2>/dev/null) keywords)"
+    read -p "  Rebuild from CSV? (y/n): " rebuild
+    if [ "$rebuild" != "y" ]; then
+        csv_path=""
+    fi
+fi
+
+if [ -z "${rebuild:-}" ] || [ "$rebuild" = "y" ]; then
+    echo -e "  Export your transaction history from Wave:"
 echo -e "  ${CYAN}Wave → Reports → Account Transactions (General Ledger) → Export CSV${NC}"
 echo -e "  (Set date range to last 12 months)"
 echo ""
@@ -401,6 +458,7 @@ if [ -n "$csv_path" ] && [ -f "$csv_path" ]; then
     info "Review it and tweak if needed. Run 'uv run plaid_sync.py --dump-accounts' to validate."
 else
     warn "No CSV found. Export from Wave → Reports → Account Transactions, drop in workspace, re-run."
+fi
 fi
 
 # ─── Step 6: Save secrets ─────────────────────────────────────────────────────
@@ -444,16 +502,77 @@ if [ "$save_secrets" = "y" ]; then
         gh secret set PLAID_ACCESS_TOKENS --body "$PLAID_ACCESS_TOKENS" &>/dev/null &
         spinner $! "Saving PLAID_ACCESS_TOKENS"
     else
-        info "Last one — your Plaid access tokens."
-        info "Format: Name:access-token:Wave Account Name:type"
-        info "Example: MyBank:access-prod-xxx:Business Checking (001):checking"
+        # Try to build PLAID_ACCESS_TOKENS interactively from connected items
         echo ""
-        echo -e "  Get tokens with: ${CYAN}plaid item list --json${NC}"
+        warn "PLAID_ACCESS_TOKENS not assembled automatically. Let's build it now."
         echo ""
-        read -p "  Paste PLAID_ACCESS_TOKENS (or Enter to skip): " tokens
-        if [ -n "$tokens" ]; then
-            gh secret set PLAID_ACCESS_TOKENS --body "$tokens" &>/dev/null &
+
+        # Get connected Plaid items
+        PLAID_ITEMS=$(plaid item list --json 2>/dev/null)
+        if [ -n "$PLAID_ITEMS" ] && [ "$PLAID_ITEMS" != "[]" ]; then
+            # Get Wave accounts for reference
+            echo -e "  ${BOLD}Your Wave accounts:${NC}"
+            uv run plaid_sync.py --dump-accounts 2>/dev/null | grep "^  " | head -20
+            echo ""
+            echo -e "  ${BOLD}Your connected Plaid items:${NC}"
+            echo "$PLAID_ITEMS" | python3 -c "
+import json, sys
+items = json.load(sys.stdin)
+for i, item in enumerate(items):
+    token = item.get('access_token', 'unknown')
+    name = item.get('institution_name', item.get('institution_id', f'Bank {i+1}'))
+    print(f'  {i+1}. {name} (token: {token[:20]}...)')
+" 2>/dev/null
+            echo ""
+
+            # Build token string interactively
+            BUILT_TOKENS=""
+            echo "$PLAID_ITEMS" | python3 -c "
+import json, sys
+items = json.load(sys.stdin)
+for item in items:
+    token = item.get('access_token', '')
+    name = item.get('institution_name', 'Bank')
+    print(f'{name}|{token}')
+" 2>/dev/null | while IFS='|' read -r bank_name access_token; do
+                echo ""
+                echo -e "  ${BOLD}${bank_name}${NC}:"
+                read -p "    Wave account name (e.g. 'Business Checking (001)'): " wave_acct
+                read -p "    Type (checking or credit_card): " acct_type
+                [ -z "$acct_type" ] && acct_type="checking"
+                if [ -n "$wave_acct" ]; then
+                    ENTRY="${bank_name}:${access_token}:${wave_acct}:${acct_type}"
+                    if [ -z "$BUILT_TOKENS" ]; then
+                        BUILT_TOKENS="$ENTRY"
+                    else
+                        BUILT_TOKENS="${BUILT_TOKENS},${ENTRY}"
+                    fi
+                fi
+            done
+
+            if [ -n "$BUILT_TOKENS" ]; then
+                PLAID_ACCESS_TOKENS="$BUILT_TOKENS"
+            fi
+        fi
+
+        # Final fallback — manual paste
+        if [ -z "$PLAID_ACCESS_TOKENS" ]; then
+            info "Could not auto-detect. Paste the value manually:"
+            info "Format: Name:access-token:Wave Account Name:type"
+            info "Example: MyBank:access-prod-xxx:Business Checking (001):checking"
+            echo ""
+            echo -e "  Get tokens with: ${CYAN}plaid item list --json${NC}"
+            echo ""
+            read -p "  Paste PLAID_ACCESS_TOKENS (or Enter to skip): " tokens
+            [ -n "$tokens" ] && PLAID_ACCESS_TOKENS="$tokens"
+        fi
+
+        if [ -n "$PLAID_ACCESS_TOKENS" ]; then
+            gh secret set PLAID_ACCESS_TOKENS --body "$PLAID_ACCESS_TOKENS" &>/dev/null &
             spinner $! "Saving PLAID_ACCESS_TOKENS"
+        else
+            warn "PLAID_ACCESS_TOKENS not set. The Action will fail until this is configured."
+            info "Re-run ./setup.sh or set it manually in Settings → Secrets → Actions"
         fi
     fi
 else
@@ -462,33 +581,37 @@ fi
 
 # ─── Done ─────────────────────────────────────────────────────────────────────
 
-# Enable the Actions workflow
-if ! gh workflow enable sync.yml 2>/dev/null; then
-    REPO_URL=$(gh repo view --json url -q '.url' 2>/dev/null)
-    echo ""
-    warn "GitHub requires you to manually enable Actions on a new fork."
-    echo -e "  1. Open: ${CYAN}${REPO_URL}/actions${NC}"
-    echo -e "  2. Click: ${BOLD}I understand my workflows, go ahead and enable them${NC}"
-    echo ""
-    read -p "  Press Enter once you've clicked the button..."
-    gh workflow enable sync.yml &>/dev/null
-fi
-success "GitHub Actions workflow enabled"
-
-# Trigger a test run
-if gh workflow run sync.yml -f days=3 -f dry_run=true 2>/dev/null; then
-    success "Test run triggered (dry-run)"
-
-    info "Waiting for test run to complete..."
-    sleep 10
-    RUN_ID=$(gh run list --workflow=sync.yml -L 1 --json databaseId -q '.[0].databaseId' 2>/dev/null)
-    if [ -n "$RUN_ID" ]; then
-        gh run watch "$RUN_ID" --exit-status 2>/dev/null && success "Test run passed! ✓" || warn "Test run failed — check Actions tab for details"
-        REPO_URL=$(gh repo view --json url -q '.url' 2>/dev/null)
-        echo -e "  ${CYAN}${REPO_URL}/actions/runs/${RUN_ID}${NC}"
-    fi
+# Enable the Actions workflow (only if secrets are configured)
+if [ -z "$PLAID_CLIENT_ID" ] || [ -z "$PLAID_ACCESS_TOKENS" ]; then
+    warn "Skipping workflow enable — secrets incomplete. Re-run ./setup.sh when ready."
 else
-    warn "Could not trigger test run. Trigger manually from the Actions tab."
+    if ! gh workflow enable sync.yml 2>/dev/null; then
+        REPO_URL=$(gh repo view --json url -q '.url' 2>/dev/null)
+        echo ""
+        warn "GitHub requires you to manually enable Actions on a new fork."
+        echo -e "  1. Open: ${CYAN}${REPO_URL}/actions${NC}"
+        echo -e "  2. Click: ${BOLD}I understand my workflows, go ahead and enable them${NC}"
+        echo ""
+        read -p "  Press Enter once you've clicked the button..."
+        gh workflow enable sync.yml &>/dev/null
+    fi
+    success "GitHub Actions workflow enabled"
+
+    # Trigger a test run
+    if gh workflow run sync.yml -f days=3 -f dry_run=true 2>/dev/null; then
+        success "Test run triggered (dry-run)"
+
+        info "Waiting for test run to complete..."
+        sleep 10
+        RUN_ID=$(gh run list --workflow=sync.yml -L 1 --json databaseId -q '.[0].databaseId' 2>/dev/null)
+        if [ -n "$RUN_ID" ]; then
+            gh run watch "$RUN_ID" --exit-status 2>/dev/null && success "Test run passed! ✓" || warn "Test run failed — check Actions tab for details"
+            REPO_URL=$(gh repo view --json url -q '.url' 2>/dev/null)
+            echo -e "  ${CYAN}${REPO_URL}/actions/runs/${RUN_ID}${NC}"
+        fi
+    else
+        warn "Could not trigger test run. Trigger manually from the Actions tab."
+    fi
 fi
 
 echo ""

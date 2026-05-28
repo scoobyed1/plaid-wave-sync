@@ -422,21 +422,56 @@ def main():
                     "accounts": [{"name": a["name"], "mask": a["mask"], "type": "credit_card" if a["type"] == "credit" else "checking"} for a in accts]
                 }, f)
         else:
-            print("\n✗ Timed out.")
+            print("\n✗ No bank connected after 10 minutes.")
+            print("")
+            print("Possible reasons:")
+            print("  • You closed the browser before finishing — re-run and try again")
+            print("  • The bank requires OAuth approval (Chase, Schwab, etc.)")
+            print("    Plaid will email you when approved (~24hrs).")
+            print("    Check status: https://dashboard.plaid.com/activity/status/oauth-institutions")
+            print("    Re-run setup.sh after approval.")
         return
 
     # ── Re-auth mode ──────────────────────────────────────────────────────────
     if args.reauth:
         logging.getLogger("httpx").setLevel(logging.WARNING)
         tokens = os.environ.get("PLAID_ACCESS_TOKENS", "")
-        if not tokens:
-            print("No PLAID_ACCESS_TOKENS set.")
+
+        # Build list of (name, token) pairs
+        items = []
+        if tokens:
+            for entry in tokens.split(","):
+                parts = entry.strip().split(":")
+                if len(parts) >= 2:
+                    items.append((parts[0], parts[1]))
+        else:
+            # Fall back to querying Plaid CLI for items (works in fresh Codespaces)
+            print("PLAID_ACCESS_TOKENS not set — querying Plaid for connected items...")
+            import subprocess
+            try:
+                result = subprocess.run(
+                    ["plaid", "item", "list", "--json"],
+                    capture_output=True, text=True, timeout=30,
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    plaid_items = json.loads(result.stdout)
+                    for item in plaid_items:
+                        name = item.get("institution_name") or item.get("institution_id") or "Bank"
+                        token = item.get("access_token", "")
+                        if token:
+                            items.append((name, token))
+            except FileNotFoundError:
+                print("Plaid CLI not installed and PLAID_ACCESS_TOKENS not set.")
+                print("Install: brew install plaid/plaid-cli/plaid")
+                sys.exit(1)
+            except Exception as e:
+                print(f"Couldn't query Plaid CLI: {e}")
+
+        if not items:
+            print("No tokens found. Set PLAID_ACCESS_TOKENS or connect a bank with `plaid item add`.")
             sys.exit(1)
-        for entry in tokens.split(","):
-            parts = entry.strip().split(":")
-            if len(parts) < 2:
-                continue
-            name, token = parts[0], parts[1]
+
+        for name, token in items:
             print(f"\nGenerating re-auth link for {name}...")
             try:
                 url, _ = generate_reauth_link(token)
