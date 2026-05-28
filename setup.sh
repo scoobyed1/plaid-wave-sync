@@ -400,6 +400,9 @@ if [ -f /tmp/plaid-tokens-all.jsonl ]; then
             # Read all lines from the jsonl into an array
             mapfile -t UNMATCHED_LINES < /tmp/plaid-tokens-all.jsonl 2>/dev/null
 
+            echo "  [debug] inside if block, array size: ${#UNMATCHED_LINES[@]}"
+            echo "  [debug] first line: ${UNMATCHED_LINES[0]:0:60}"
+
             if [ ${#UNMATCHED_LINES[@]} -eq 0 ]; then
                 warn "No accounts found in token file."
             fi
