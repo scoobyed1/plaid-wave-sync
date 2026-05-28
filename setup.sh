@@ -384,21 +384,34 @@ if [ -f /tmp/plaid-tokens-all.jsonl ]; then
 
         # Check for unmatched accounts in the output
         if grep -q "UNMATCHED" /tmp/plaid-access-tokens.txt 2>/dev/null || [ -z "$PLAID_ACCESS_TOKENS" ]; then
-            # Show available Wave accounts
-            if [ -f /tmp/wave-account-options.txt ]; then
-                echo ""
-                echo -e "  ${BOLD}Available Wave accounts:${NC}"
-                cat /tmp/wave-account-options.txt | awk '{printf "    %d. %s\n", NR, $0}'
-                echo ""
-            fi
-            # Read the jsonl and ask for each
+            # Read the jsonl and ask for each unmatched account
             while IFS= read -r line; do
                 if [ -n "$line" ]; then
                     ACCT_NAME=$(echo "$line" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['accounts'][0]['name'])" 2>/dev/null)
                     ACCT_TOKEN=$(echo "$line" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['access_token'])" 2>/dev/null)
                     ACCT_TYPE=$(echo "$line" | python3 -c "import json,sys; d=json.load(sys.stdin); a=d['accounts'][0]; print('credit_card' if a['type']=='credit_card' else 'checking')" 2>/dev/null)
-                    read -p "  Wave account for '$ACCT_NAME' ($ACCT_TYPE): " wave_name
+
+                    # Skip if already matched
+                    echo "$PLAID_ACCESS_TOKENS" | grep -q "$ACCT_TOKEN" 2>/dev/null && continue
+
+                    # Show available Wave accounts
+                    if [ -f /tmp/wave-account-options.txt ]; then
+                        echo ""
+                        echo -e "  ${BOLD}Which Wave account is '$ACCT_NAME' ($ACCT_TYPE)?${NC}"
+                        cat /tmp/wave-account-options.txt | awk '{printf "    %d. %s\n", NR, $0}'
+                        echo ""
+                    fi
+
+                    read -p "  Enter number or name: " wave_input
+                    # If they typed a number, look it up
+                    if [ -n "$wave_input" ] && [ "$wave_input" -eq "$wave_input" ] 2>/dev/null; then
+                        wave_name=$(sed -n "${wave_input}p" /tmp/wave-account-options.txt 2>/dev/null)
+                    else
+                        wave_name="$wave_input"
+                    fi
+
                     if [ -n "$wave_name" ]; then
+                        success "Mapped $ACCT_NAME → $wave_name"
                         ENTRY="${ACCT_NAME}:${ACCT_TOKEN}:${wave_name}:${ACCT_TYPE}"
                         if [ -z "$PLAID_ACCESS_TOKENS" ]; then
                             PLAID_ACCESS_TOKENS="$ENTRY"

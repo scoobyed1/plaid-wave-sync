@@ -20,6 +20,14 @@ if not wave_token or not biz_id:
     sys.exit(1)
 
 page = 1
+# System accounts that aren't real bank/CC accounts
+SYSTEM_ACCOUNTS = {
+    'accounts payable', 'accounts receivable', 'transfer clearing',
+    'cash on hand', 'payroll liabilities', 'taxes payable',
+    'taxes recoverable/refundable', 'employee 401k contributions',
+    'shareholder loan',
+}
+
 while True:
     r = httpx.post('https://gql.waveapps.com/graphql/public',
         headers={'Authorization': f'Bearer {wave_token}'},
@@ -33,7 +41,9 @@ while True:
     for e in d['edges']:
         n = e['node']
         if not n['isArchived'] and n['type']['name'] in ('Assets', 'Liabilities & Credit Cards'):
-            wave_accounts.append(n['name'])
+            name = n['name']
+            if name.lower() not in SYSTEM_ACCOUNTS and name not in wave_accounts:
+                wave_accounts.append(name)
     if page >= d['pageInfo']['totalPages']:
         break
     page += 1
