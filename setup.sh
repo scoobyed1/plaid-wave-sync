@@ -212,7 +212,8 @@ fi
 step "Step 3/6 · Connect your bank accounts"
 
 # Check if banks are already connected from a previous run
-EXISTING_ITEMS=$(plaid item list 2>/dev/null | grep -c "access-" || echo "0")
+EXISTING_ITEMS=$(plaid item list 2>/dev/null | grep -c "access-" 2>/dev/null || true)
+EXISTING_ITEMS=${EXISTING_ITEMS:-0}
 if [ "$EXISTING_ITEMS" -gt "0" ]; then
     success "Found $EXISTING_ITEMS connected bank(s):"
     plaid item list 2>/dev/null | grep -v "^$" | while read -r line; do echo -e "    $line"; done
