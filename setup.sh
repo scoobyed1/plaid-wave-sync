@@ -415,7 +415,9 @@ if [ -f /tmp/plaid-tokens-all.jsonl ]; then
                 ACCT_TYPE=$(echo "$line" | python3 -c "import json,sys; d=json.load(sys.stdin); a=d['accounts'][0]; print('credit_card' if a['type']=='credit_card' else 'checking')" 2>/dev/null)
 
                 # Skip if already matched
-                echo "$PLAID_ACCESS_TOKENS" | grep -q "$ACCT_TOKEN" 2>/dev/null && continue
+                if [ -n "$PLAID_ACCESS_TOKENS" ] && [ -n "$ACCT_TOKEN" ]; then
+                    echo "$PLAID_ACCESS_TOKENS" | grep -q "$ACCT_TOKEN" 2>/dev/null && continue
+                fi
 
                 # Show available Wave accounts
                 if [ -f /tmp/wave-account-options.txt ] && [ -s /tmp/wave-account-options.txt ]; then
