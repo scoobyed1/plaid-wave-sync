@@ -410,14 +410,16 @@ if [ -f /tmp/plaid-tokens-all.jsonl ]; then
             for line in "${UNMATCHED_LINES[@]}"; do
                 [ -z "$line" ] && continue
 
-                eval "$(printf '%s' "$line" | python3 -c "
+                PARSED=$(printf '%s' "$line" | python3 -c "
 import json,sys
 d=json.load(sys.stdin)
 a=d['accounts'][0]
-print(f'ACCT_NAME=\"{a[\"name\"]}\"')
-print(f'ACCT_TOKEN=\"{d[\"access_token\"]}\"')
-print(f'ACCT_TYPE=\"{\"credit_card\" if a[\"type\"]==\"credit_card\" else \"checking\"}\"')
-" 2>/dev/null)"
+t='credit_card' if a.get('type')=='credit_card' else 'checking'
+print(a.get('name','Unknown') + '\t' + d.get('access_token','') + '\t' + t)
+" 2>/dev/null)
+                ACCT_NAME=$(echo "$PARSED" | cut -f1)
+                ACCT_TOKEN=$(echo "$PARSED" | cut -f2)
+                ACCT_TYPE=$(echo "$PARSED" | cut -f3)
 
                 # Skip if already matched
                 if [ -n "$PLAID_ACCESS_TOKENS" ] && [ -n "$ACCT_TOKEN" ]; then
